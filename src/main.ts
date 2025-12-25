@@ -5,9 +5,20 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // CORS Configuration test
+  // Best practice CORS configuration: allow multiple origins (env and hardcoded)
+  const allowedOrigins = [
+    ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : []),
+    'http://localhost:3000',
+    'https://ro0k004sg00c0884goskw404.ourb.live', // Add your deployed domain explicitly
+  ];
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
