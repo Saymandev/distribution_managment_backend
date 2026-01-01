@@ -1,4 +1,4 @@
-import { ReturnType } from '../../../database/schemas/product-return.schema';
+import { ReturnType } from "../../../database/schemas/product-return.schema";
 export declare class ReturnItemDto {
     productId: string;
     quantity: number;

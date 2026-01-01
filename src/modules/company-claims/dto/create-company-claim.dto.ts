@@ -1,5 +1,15 @@
-import { IsString, IsNotEmpty, IsArray, ValidateNested, IsMongoId, IsNumber, IsOptional, Min, IsEnum } from 'class-validator';
-import { Type } from 'class-transformer';
+import {
+  IsString,
+  IsNotEmpty,
+  IsArray,
+  ValidateNested,
+  IsMongoId,
+  IsNumber,
+  IsOptional,
+  Min,
+  IsEnum,
+} from "class-validator";
+import { Type } from "class-transformer";
 
 export class ClaimItemDto {
   @IsMongoId()
@@ -41,7 +51,7 @@ export class CreateCompanyClaimDto {
   @Type(() => ClaimItemDto)
   items: ClaimItemDto[];
 
-  @IsEnum(['pending', 'claimed', 'paid'])
+  @IsEnum(["pending", "claimed", "paid"])
   @IsOptional()
   status?: string;
 
@@ -49,4 +59,3 @@ export class CreateCompanyClaimDto {
   @IsOptional()
   notes?: string;
 }
-

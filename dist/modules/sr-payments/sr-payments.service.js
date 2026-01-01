@@ -18,18 +18,20 @@ const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const company_claim_schema_1 = require("../../database/schemas/company-claim.schema");
 const company_schema_1 = require("../../database/schemas/company.schema");
+const product_return_schema_1 = require("../../database/schemas/product-return.schema");
 const product_schema_1 = require("../../database/schemas/product.schema");
 const salesrep_schema_1 = require("../../database/schemas/salesrep.schema");
 const sr_issue_schema_1 = require("../../database/schemas/sr-issue.schema");
 const sr_payment_schema_1 = require("../../database/schemas/sr-payment.schema");
 let SRPaymentsService = class SRPaymentsService {
-    constructor(srPaymentModel, salesRepModel, srIssueModel, productModel, companyModel, companyClaimModel) {
+    constructor(srPaymentModel, salesRepModel, srIssueModel, productModel, companyModel, companyClaimModel, productReturnModel) {
         this.srPaymentModel = srPaymentModel;
         this.salesRepModel = salesRepModel;
         this.srIssueModel = srIssueModel;
         this.productModel = productModel;
         this.companyModel = companyModel;
         this.companyClaimModel = companyClaimModel;
+        this.productReturnModel = productReturnModel;
     }
     async generateReceiptNumber() {
         const lastPayment = await this.srPaymentModel
@@ -37,14 +39,14 @@ let SRPaymentsService = class SRPaymentsService {
             .sort({ createdAt: -1 })
             .exec();
         if (!lastPayment || !lastPayment.receiptNumber) {
-            return 'PAY-001';
+            return "PAY-001";
         }
         const match = lastPayment.receiptNumber.match(/PAY-(\d+)/);
         if (!match) {
-            return 'PAY-001';
+            return "PAY-001";
         }
-        const lastNumber = parseInt(match[1] || '0');
-        const nextNumber = (lastNumber + 1).toString().padStart(3, '0');
+        const lastNumber = parseInt(match[1] || "0");
+        const nextNumber = (lastNumber + 1).toString().padStart(3, "0");
         return `PAY-${nextNumber}`;
     }
     async generateClaimNumber() {
@@ -53,105 +55,110 @@ let SRPaymentsService = class SRPaymentsService {
             .sort({ createdAt: -1 })
             .exec();
         if (!lastClaim || !lastClaim.claimNumber) {
-            return 'CLAIM-001';
+            return "CLAIM-001";
         }
         const match = lastClaim.claimNumber.match(/CLAIM-(\d+)/);
         if (!match) {
-            return 'CLAIM-001';
+            return "CLAIM-001";
         }
-        const lastNumber = parseInt(match[1] || '0');
-        const nextNumber = (lastNumber + 1).toString().padStart(3, '0');
+        const lastNumber = parseInt(match[1] || "0");
+        const nextNumber = (lastNumber + 1).toString().padStart(3, "0");
         return `CLAIM-${nextNumber}`;
     }
     async createClaimFromPayment(payment) {
         var _a, _b, _c, _d;
         if (!payment.issueId) {
-            throw new common_1.NotFoundException('Issue ID is required to create a claim');
+            throw new common_1.NotFoundException("Issue ID is required to create a claim");
         }
         let paymentIssueId;
-        if (typeof payment.issueId === 'string') {
+        if (typeof payment.issueId === "string") {
             paymentIssueId = mongoose_2.Types.ObjectId.isValid(payment.issueId)
                 ? new mongoose_2.Types.ObjectId(payment.issueId)
                 : payment.issueId;
         }
-        else if (payment.issueId && typeof payment.issueId === 'object' && '_id' in payment.issueId) {
+        else if (payment.issueId &&
+            typeof payment.issueId === "object" &&
+            "_id" in payment.issueId) {
             paymentIssueId = payment.issueId._id;
         }
         else {
             paymentIssueId = payment.issueId;
         }
-        const existingClaimByIssue = await this.companyClaimModel.findOne({
+        const existingClaimByIssue = await this.companyClaimModel
+            .findOne({
             $or: [
                 { issueId: paymentIssueId },
                 { issueId: String(paymentIssueId) },
-                { issueId: new mongoose_2.Types.ObjectId(String(paymentIssueId)) }
-            ]
-        }).exec();
+                { issueId: new mongoose_2.Types.ObjectId(String(paymentIssueId)) },
+            ],
+        })
+            .exec();
         if (existingClaimByIssue) {
             return this.updateClaimFromPayment(payment);
         }
         const paymentIdString = String(payment._id);
-        const existingClaimByPayment = await this.companyClaimModel.findOne({
-            $or: [
-                { paymentId: paymentIdString },
-                { paymentId: payment._id }
-            ]
-        }).exec();
+        const existingClaimByPayment = await this.companyClaimModel
+            .findOne({
+            $or: [{ paymentId: paymentIdString }, { paymentId: payment._id }],
+        })
+            .exec();
         if (existingClaimByPayment) {
             return this.updateClaimFromPayment(payment);
         }
-        const productIds = payment.items.map(item => {
-            if (typeof item.productId === 'string') {
+        const productIds = payment.items.map((item) => {
+            if (typeof item.productId === "string") {
                 return item.productId;
             }
-            else if (item.productId && typeof item.productId === 'object' && '_id' in item.productId) {
+            else if (item.productId &&
+                typeof item.productId === "object" &&
+                "_id" in item.productId) {
                 return item.productId._id;
             }
-            throw new common_1.NotFoundException('Invalid product ID in payment items');
+            throw new common_1.NotFoundException("Invalid product ID in payment items");
         });
-        const products = await this.productModel.find({ _id: { $in: productIds } }).exec();
+        const products = await this.productModel
+            .find({ _id: { $in: productIds } })
+            .exec();
         if (products.length === 0) {
-            throw new common_1.NotFoundException('Products not found');
+            throw new common_1.NotFoundException("Products not found");
         }
-        const companyId = typeof products[0].companyId === 'string'
+        const companyId = typeof products[0].companyId === "string"
             ? products[0].companyId
             : ((_a = products[0].companyId) === null || _a === void 0 ? void 0 : _a._id) || products[0].companyId;
         const company = await this.companyModel.findById(companyId).exec();
         if (!company) {
-            throw new common_1.NotFoundException('Company not found');
+            throw new common_1.NotFoundException("Company not found");
         }
-        const claimItems = payment.items.map(paymentItem => {
+        const claimItems = payment.items.map((paymentItem) => {
             var _a;
-            const productId = typeof paymentItem.productId === 'string'
+            const productId = typeof paymentItem.productId === "string"
                 ? paymentItem.productId
                 : ((_a = paymentItem.productId) === null || _a === void 0 ? void 0 : _a._id) || paymentItem.productId;
-            const product = products.find(p => p._id.toString() === productId.toString());
+            const product = products.find((p) => p._id.toString() === productId.toString());
             if (!product) {
                 throw new common_1.NotFoundException(`Product ${productId} not found`);
             }
-            const dealerPriceTotal = paymentItem.quantity * paymentItem.dealerPrice;
-            const commissionAmount = dealerPriceTotal * (company.commissionRate / 100);
-            const srPayment = paymentItem.quantity * paymentItem.tradePrice;
-            const netFromCompany = dealerPriceTotal + commissionAmount - srPayment;
+            const discount = paymentItem.quantity *
+                (paymentItem.dealerPrice - paymentItem.tradePrice);
             return {
                 productId,
                 quantity: paymentItem.quantity,
                 dealerPrice: paymentItem.dealerPrice,
-                commissionRate: company.commissionRate,
-                commissionAmount,
-                srPayment,
-                netFromCompany,
+                tradePrice: paymentItem.tradePrice,
+                discount,
+                srPayment: paymentItem.quantity * paymentItem.tradePrice,
+                netFromCompany: discount,
             };
         });
-        const totalDealerPrice = claimItems.reduce((sum, item) => sum + (item.quantity * item.dealerPrice), 0);
-        const totalCommission = claimItems.reduce((sum, item) => sum + item.commissionAmount, 0);
-        const totalClaim = totalDealerPrice + totalCommission;
-        const totalSRPayment = payment.totalReceived;
-        const netFromCompany = totalClaim - totalSRPayment;
+        const totalDealerPrice = claimItems.reduce((sum, item) => sum + item.quantity * item.dealerPrice, 0);
+        const totalCompanyClaim = payment.companyClaim || 0;
+        const totalSRPayment = claimItems.reduce((sum, item) => sum + item.srPayment, 0);
+        const netFromCompany = totalCompanyClaim;
         const claimNumber = await this.generateClaimNumber();
-        const claimIssueId = typeof payment.issueId === 'string'
+        const claimIssueId = typeof payment.issueId === "string"
             ? payment.issueId
-            : ((_c = (_b = payment.issueId) === null || _b === void 0 ? void 0 : _b._id) === null || _c === void 0 ? void 0 : _c.toString()) || ((_d = payment.issueId) === null || _d === void 0 ? void 0 : _d._id);
+            : ((_c = (_b = payment.issueId) === null || _b === void 0 ? void 0 : _b._id) === null || _c === void 0 ? void 0 : _c.toString()) ||
+                ((_d = payment.issueId) === null || _d === void 0 ? void 0 : _d._id);
         const claim = new this.companyClaimModel({
             claimNumber,
             companyId,
@@ -159,8 +166,7 @@ let SRPaymentsService = class SRPaymentsService {
             issueId: claimIssueId,
             items: claimItems,
             totalDealerPrice,
-            totalCommission,
-            totalClaim,
+            totalCompanyClaim,
             totalSRPayment,
             netFromCompany,
             status: company_claim_schema_1.ClaimStatus.PENDING,
@@ -171,94 +177,97 @@ let SRPaymentsService = class SRPaymentsService {
     async updateClaimFromPayment(payment) {
         var _a, _b;
         if (!payment.issueId) {
-            throw new common_1.NotFoundException('Issue ID is required to update a claim');
+            throw new common_1.NotFoundException("Issue ID is required to update a claim");
         }
         let updateIssueId;
-        if (typeof payment.issueId === 'string') {
+        if (typeof payment.issueId === "string") {
             updateIssueId = mongoose_2.Types.ObjectId.isValid(payment.issueId)
                 ? new mongoose_2.Types.ObjectId(payment.issueId)
                 : payment.issueId;
         }
-        else if (payment.issueId && typeof payment.issueId === 'object' && '_id' in payment.issueId) {
+        else if (payment.issueId &&
+            typeof payment.issueId === "object" &&
+            "_id" in payment.issueId) {
             updateIssueId = payment.issueId._id;
         }
         else {
             updateIssueId = payment.issueId;
         }
-        let existingClaim = await this.companyClaimModel.findOne({
+        let existingClaim = await this.companyClaimModel
+            .findOne({
             $or: [
                 { issueId: updateIssueId },
                 { issueId: String(updateIssueId) },
-                { issueId: new mongoose_2.Types.ObjectId(String(updateIssueId)) }
-            ]
-        }).exec();
+                { issueId: new mongoose_2.Types.ObjectId(String(updateIssueId)) },
+            ],
+        })
+            .exec();
         if (!existingClaim) {
             const paymentIdString = String(payment._id);
-            existingClaim = await this.companyClaimModel.findOne({
-                $or: [
-                    { paymentId: paymentIdString },
-                    { paymentId: payment._id }
-                ]
-            }).exec();
+            existingClaim = await this.companyClaimModel
+                .findOne({
+                $or: [{ paymentId: paymentIdString }, { paymentId: payment._id }],
+            })
+                .exec();
         }
         if (!existingClaim) {
             return this.createClaimFromPayment(payment);
         }
-        const productIds = payment.items.map(item => {
-            if (typeof item.productId === 'string') {
+        const productIds = payment.items.map((item) => {
+            if (typeof item.productId === "string") {
                 return item.productId;
             }
-            else if (item.productId && typeof item.productId === 'object' && '_id' in item.productId) {
+            else if (item.productId &&
+                typeof item.productId === "object" &&
+                "_id" in item.productId) {
                 return item.productId._id;
             }
-            throw new common_1.NotFoundException('Invalid product ID in payment items');
+            throw new common_1.NotFoundException("Invalid product ID in payment items");
         });
-        const products = await this.productModel.find({ _id: { $in: productIds } }).exec();
+        const products = await this.productModel
+            .find({ _id: { $in: productIds } })
+            .exec();
         if (products.length === 0) {
-            throw new common_1.NotFoundException('Products not found');
+            throw new common_1.NotFoundException("Products not found");
         }
-        const companyId = typeof products[0].companyId === 'string'
+        const companyId = typeof products[0].companyId === "string"
             ? products[0].companyId
             : ((_a = products[0].companyId) === null || _a === void 0 ? void 0 : _a._id) || products[0].companyId;
         const company = await this.companyModel.findById(companyId).exec();
         if (!company) {
-            throw new common_1.NotFoundException('Company not found');
+            throw new common_1.NotFoundException("Company not found");
         }
-        const claimItems = payment.items.map(paymentItem => {
+        const claimItems = payment.items.map((paymentItem) => {
             var _a;
-            const productId = typeof paymentItem.productId === 'string'
+            const productId = typeof paymentItem.productId === "string"
                 ? paymentItem.productId
                 : ((_a = paymentItem.productId) === null || _a === void 0 ? void 0 : _a._id) || paymentItem.productId;
-            const product = products.find(p => p._id.toString() === productId.toString());
+            const product = products.find((p) => p._id.toString() === productId.toString());
             if (!product) {
                 throw new common_1.NotFoundException(`Product ${productId} not found`);
             }
-            const dealerPriceTotal = paymentItem.quantity * paymentItem.dealerPrice;
-            const commissionAmount = dealerPriceTotal * (company.commissionRate / 100);
-            const srPayment = paymentItem.quantity * paymentItem.tradePrice;
-            const netFromCompany = dealerPriceTotal + commissionAmount - srPayment;
+            const discount = paymentItem.quantity *
+                (paymentItem.dealerPrice - paymentItem.tradePrice);
             return {
                 productId,
                 quantity: paymentItem.quantity,
                 dealerPrice: paymentItem.dealerPrice,
-                commissionRate: company.commissionRate,
-                commissionAmount,
-                srPayment,
-                netFromCompany,
+                tradePrice: paymentItem.tradePrice,
+                discount,
+                srPayment: paymentItem.quantity * paymentItem.tradePrice,
+                netFromCompany: discount,
             };
         });
-        const totalDealerPrice = claimItems.reduce((sum, item) => sum + (item.quantity * item.dealerPrice), 0);
-        const totalCommission = claimItems.reduce((sum, item) => sum + item.commissionAmount, 0);
-        const totalClaim = totalDealerPrice + totalCommission;
-        const totalSRPayment = payment.totalReceived;
-        const netFromCompany = totalClaim - totalSRPayment;
-        const finalIssueId = typeof payment.issueId === 'string'
+        const totalDealerPrice = claimItems.reduce((sum, item) => sum + item.quantity * item.dealerPrice, 0);
+        const totalCompanyClaim = payment.companyClaim || 0;
+        const totalSRPayment = claimItems.reduce((sum, item) => sum + item.srPayment, 0);
+        const netFromCompany = totalCompanyClaim;
+        const finalIssueId = typeof payment.issueId === "string"
             ? payment.issueId
             : String(((_b = payment.issueId) === null || _b === void 0 ? void 0 : _b._id) || payment.issueId);
         existingClaim.items = claimItems;
         existingClaim.totalDealerPrice = totalDealerPrice;
-        existingClaim.totalCommission = totalCommission;
-        existingClaim.totalClaim = totalClaim;
+        existingClaim.totalCompanyClaim = totalCompanyClaim;
         existingClaim.totalSRPayment = totalSRPayment;
         existingClaim.netFromCompany = netFromCompany;
         existingClaim.paymentId = String(payment._id);
@@ -267,49 +276,41 @@ let SRPaymentsService = class SRPaymentsService {
         return existingClaim.save();
     }
     async create(dto) {
-        var _a, _b, _c, _d, _e;
-        console.log('📥 CREATE PAYMENT - Received DTO:', JSON.stringify(dto, null, 2));
-        console.log('📥 CREATE PAYMENT - Issue ID:', dto.issueId);
-        console.log('📥 CREATE PAYMENT - SR ID:', dto.srId);
-        console.log('📥 CREATE PAYMENT - Items count:', ((_a = dto.items) === null || _a === void 0 ? void 0 : _a.length) || 0);
+        if (dto.receiptNumber === null ||
+            (dto.receiptNumber !== undefined && dto.receiptNumber.trim() === "")) {
+            dto.receiptNumber = undefined;
+        }
         if (dto.items && dto.items.length > 0) {
-            const totalExpected = dto.items.reduce((sum, item) => sum + (item.quantity * item.dealerPrice), 0);
-            const totalReceived = dto.items.reduce((sum, item) => sum + (item.quantity * item.tradePrice), 0);
-            console.log('📥 CREATE PAYMENT - Calculated Total Expected:', totalExpected);
-            console.log('📥 CREATE PAYMENT - Calculated Total Received:', totalReceived);
-            console.log('📥 CREATE PAYMENT - Items details:', dto.items.map(item => ({
+            const totalExpected = dto.items.reduce((sum, item) => sum + item.quantity * item.dealerPrice, 0);
+            const totalReceived = dto.items.reduce((sum, item) => sum + item.quantity * item.tradePrice, 0);
+            const items = dto.items.map((item) => ({
                 productId: item.productId,
                 quantity: item.quantity,
                 dealerPrice: item.dealerPrice,
                 tradePrice: item.tradePrice,
                 expected: item.quantity * item.dealerPrice,
-                received: item.quantity * item.tradePrice
-            })));
+                received: item.quantity * item.tradePrice,
+            }));
         }
         if (dto.issueId) {
-            const issueIdString = typeof dto.issueId === 'string' ? dto.issueId : String(dto.issueId);
-            const existingPayment = await this.srPaymentModel.findOne({
-                issueId: issueIdString
-            }).exec();
+            const issueIdString = typeof dto.issueId === "string" ? dto.issueId : String(dto.issueId);
+            const existingPayment = await this.srPaymentModel
+                .findOne({
+                issueId: issueIdString,
+            })
+                .exec();
             if (existingPayment) {
-                console.log('🔄 UPDATE EXISTING PAYMENT - Existing payment found:', {
-                    receiptNumber: existingPayment.receiptNumber,
-                    currentTotalReceived: existingPayment.totalReceived,
-                    currentTotalExpected: existingPayment.totalExpected
-                });
-                let newPaymentAmount = 0;
-                let totalExpected = 0;
-                let totalDiscount = 0;
-                const updatedItems = dto.items.map((item) => {
+                let totalExpectedFromDto = 0;
+                let totalDiscountFromDto = 0;
+                const processedItems = dto.items.map((item) => {
                     var _a;
                     const expected = item.quantity * item.dealerPrice;
                     const received = item.quantity * item.tradePrice;
                     const discount = expected - received;
-                    totalExpected += expected;
-                    newPaymentAmount += received;
-                    totalDiscount += discount;
+                    totalExpectedFromDto += expected;
+                    totalDiscountFromDto += discount;
                     return {
-                        productId: typeof item.productId === 'string'
+                        productId: typeof item.productId === "string"
                             ? item.productId
                             : (_a = item.productId) === null || _a === void 0 ? void 0 : _a._id,
                         quantity: item.quantity,
@@ -318,42 +319,50 @@ let SRPaymentsService = class SRPaymentsService {
                         discount,
                     };
                 });
-                const cumulativeTotalReceived = (existingPayment.totalReceived || 0) + newPaymentAmount;
-                console.log('🔄 UPDATE EXISTING PAYMENT - Payment calculation:', {
-                    previousTotalReceived: existingPayment.totalReceived,
-                    newPaymentAmount,
-                    cumulativeTotalReceived,
-                    totalExpected,
-                    totalDiscount
-                });
-                existingPayment.items = updatedItems;
-                existingPayment.totalExpected = totalExpected;
-                existingPayment.totalReceived = cumulativeTotalReceived;
-                existingPayment.totalDiscount = totalDiscount;
+                existingPayment.items = processedItems;
+                existingPayment.totalExpected = totalExpectedFromDto;
+                existingPayment.totalReceived =
+                    (existingPayment.totalReceived || 0) + (dto.receivedAmount || 0);
+                existingPayment.totalDiscount = totalDiscountFromDto;
+                existingPayment.receivedAmount =
+                    (existingPayment.receivedAmount || 0) + (dto.receivedAmount || 0);
                 existingPayment.paymentMethod = dto.paymentMethod;
                 existingPayment.paymentDate = new Date();
+                if (dto.companyClaim !== undefined) {
+                    existingPayment.companyClaim = dto.companyClaim;
+                }
+                if (dto.customerInfo !== undefined) {
+                    existingPayment.customerInfo = dto.customerInfo;
+                }
+                if (dto.customerDue !== undefined) {
+                    existingPayment.customerDue = dto.customerDue;
+                }
                 if (dto.notes) {
                     existingPayment.notes = existingPayment.notes
                         ? `${existingPayment.notes}\n${new Date().toLocaleString()}: ${dto.notes}`
                         : dto.notes;
                 }
                 const savedPayment = await existingPayment.save();
-                try {
-                    await this.updateClaimFromPayment(savedPayment);
-                }
-                catch (error) {
-                    console.error('Failed to auto-update claim for payment:', error);
+                if (savedPayment.companyClaim && savedPayment.companyClaim > 0) {
+                    try {
+                        await this.updateClaimFromPayment(savedPayment);
+                    }
+                    catch (error) {
+                        console.error("Failed to auto-update claim for payment:", error);
+                    }
                 }
                 return savedPayment;
             }
         }
         let receiptNumber = dto.receiptNumber;
-        if (!receiptNumber) {
+        if (!receiptNumber || receiptNumber.trim() === "") {
             let attempts = 0;
             let isUnique = false;
             while (!isUnique && attempts < 10) {
                 receiptNumber = await this.generateReceiptNumber();
-                const existing = await this.srPaymentModel.findOne({ receiptNumber }).exec();
+                const existing = await this.srPaymentModel
+                    .findOne({ receiptNumber })
+                    .exec();
                 if (!existing) {
                     isUnique = true;
                 }
@@ -361,8 +370,10 @@ let SRPaymentsService = class SRPaymentsService {
                     attempts++;
                     const match = receiptNumber.match(/PAY-(\d+)/);
                     if (match) {
-                        const lastNumber = parseInt(match[1] || '0');
-                        const nextNumber = (lastNumber + attempts).toString().padStart(3, '0');
+                        const lastNumber = parseInt(match[1] || "0");
+                        const nextNumber = (lastNumber + attempts)
+                            .toString()
+                            .padStart(3, "0");
                         receiptNumber = `PAY-${nextNumber}`;
                     }
                 }
@@ -372,63 +383,18 @@ let SRPaymentsService = class SRPaymentsService {
             }
         }
         else {
-            const existing = await this.srPaymentModel.findOne({ receiptNumber }).exec();
+            const existing = await this.srPaymentModel
+                .findOne({ receiptNumber })
+                .exec();
             if (existing) {
-                throw new common_1.ConflictException('Receipt number already exists');
+                throw new common_1.ConflictException("Receipt number already exists");
             }
         }
-        const sr = await this.salesRepModel.findById(dto.srId).exec();
-        if (!sr) {
-            throw new common_1.NotFoundException('Sales Rep not found');
-        }
-        if (dto.issueId) {
-            const issue = await this.srIssueModel.findById(dto.issueId).exec();
-            if (!issue) {
-                throw new common_1.NotFoundException('Issue not found');
-            }
-            const issueSrId = typeof issue.srId === 'string' ? issue.srId : (_c = (_b = issue.srId) === null || _b === void 0 ? void 0 : _b._id) === null || _c === void 0 ? void 0 : _c.toString();
-            if (issueSrId !== dto.srId) {
-                throw new common_1.ConflictException('Issue does not belong to the selected Sales Rep');
-            }
-            const issueProductIds = issue.items.map(item => {
-                var _a, _b;
-                const productId = typeof item.productId === 'string' ? item.productId : (_b = (_a = item.productId) === null || _a === void 0 ? void 0 : _a._id) === null || _b === void 0 ? void 0 : _b.toString();
-                return productId;
-            });
-            for (const paymentItem of dto.items) {
-                const productId = typeof paymentItem.productId === 'string' ? paymentItem.productId : (_e = (_d = paymentItem.productId) === null || _d === void 0 ? void 0 : _d._id) === null || _e === void 0 ? void 0 : _e.toString();
-                if (!issueProductIds.includes(productId)) {
-                    throw new common_1.ConflictException(`Product ${productId} is not part of issue ${dto.issueId}`);
-                }
-                const issueItem = issue.items.find(item => {
-                    var _a, _b;
-                    const itemProductId = typeof item.productId === 'string' ? item.productId : (_b = (_a = item.productId) === null || _a === void 0 ? void 0 : _a._id) === null || _b === void 0 ? void 0 : _b.toString();
-                    return itemProductId === productId;
-                });
-                if (issueItem && paymentItem.quantity > issueItem.quantity) {
-                    throw new common_1.ConflictException(`Payment quantity (${paymentItem.quantity}) exceeds issue quantity (${issueItem.quantity}) for product ${productId}`);
-                }
-                const product = await this.productModel.findById(productId).exec();
-                if (!product) {
-                    throw new common_1.NotFoundException(`Product ${productId} not found`);
-                }
-            }
-            const issueTotal = issue.totalAmount || 0;
-            const paymentTotal = dto.items.reduce((sum, item) => sum + (item.quantity * item.dealerPrice), 0);
-            if (paymentTotal > issueTotal) {
-                throw new common_1.ConflictException(`Payment amount (${paymentTotal}) exceeds issue total (${issueTotal})`);
-            }
-            const totalReceived = dto.items.reduce((sum, item) => sum + (item.quantity * item.tradePrice), 0);
-            if (totalReceived > paymentTotal) {
-                throw new common_1.ConflictException(`Received amount (${totalReceived}) cannot exceed expected amount (${paymentTotal}). Overpayment is not allowed.`);
-            }
-        }
-        console.log('✨ CREATE NEW PAYMENT - No existing payment found, creating new one');
         let totalExpected = 0;
         let totalReceived = 0;
         let totalDiscount = 0;
         const items = dto.items.map((item) => {
-            const expected = item.quantity * item.dealerPrice;
+            const expected = item.quantity * item.tradePrice;
             const received = item.quantity * item.tradePrice;
             const discount = expected - received;
             totalExpected += expected;
@@ -437,7 +403,7 @@ let SRPaymentsService = class SRPaymentsService {
             return Object.assign(Object.assign({}, item), { discount });
         });
         const payment = new this.srPaymentModel({
-            receiptNumber,
+            receiptNumber: receiptNumber,
             srId: dto.srId,
             issueId: dto.issueId,
             items,
@@ -446,264 +412,355 @@ let SRPaymentsService = class SRPaymentsService {
             totalDiscount,
             paymentMethod: dto.paymentMethod,
             paymentDate: new Date(),
+            receivedAmount: dto.receivedAmount || 0,
+            companyClaim: dto.companyClaim || 0,
+            customerInfo: dto.customerInfo,
+            customerDue: dto.customerDue || 0,
             notes: dto.notes,
         });
         const savedPayment = await payment.save();
-        console.log('✅ PAYMENT SAVED - Final payment:', {
-            receiptNumber: savedPayment.receiptNumber,
-            totalExpected: savedPayment.totalExpected,
-            totalReceived: savedPayment.totalReceived,
-            totalDiscount: savedPayment.totalDiscount,
-            issueId: savedPayment.issueId
-        });
-        try {
-            await this.createClaimFromPayment(savedPayment);
-        }
-        catch (error) {
-            console.error('Failed to auto-create claim for payment:', error);
+        if (savedPayment.companyClaim && savedPayment.companyClaim > 0) {
+            try {
+                await this.createClaimFromPayment(savedPayment);
+            }
+            catch (error) {
+                console.error("Failed to auto-create claim for payment:", error);
+            }
         }
         return savedPayment;
     }
     async findAll() {
-        const payments = await this.srPaymentModel
-            .find()
-            .populate('srId', 'name phone')
-            .populate('issueId', 'issueNumber totalAmount')
-            .populate('items.productId', 'name sku')
-            .sort({ paymentDate: -1 })
-            .exec();
-        return Promise.all(payments.map(async (payment) => {
-            var _a, _b;
-            const paymentObj = payment.toObject();
-            if (payment.issueId) {
-                const issueIdString = typeof payment.issueId === 'string'
-                    ? payment.issueId
-                    : ((_b = (_a = payment.issueId) === null || _a === void 0 ? void 0 : _a._id) === null || _b === void 0 ? void 0 : _b.toString()) || String(payment.issueId);
-                try {
-                    const { totalAmount, receivedAmount, due } = await this.calculateDueAmount(issueIdString);
-                    paymentObj.totalAmount = totalAmount;
-                    paymentObj.receivedAmount = receivedAmount;
-                    paymentObj.due = due;
+        const { payments } = await this.getOptimized();
+        return payments;
+    }
+    async getOptimized(companyId) {
+        var _a;
+        const [payments, issues, products, salesReps, returns, claims, companies] = await Promise.all([
+            this.srPaymentModel
+                .find()
+                .populate("srId")
+                .populate("issueId")
+                .populate("items.productId")
+                .sort({ paymentDate: -1, createdAt: -1 })
+                .exec(),
+            this.srIssueModel
+                .find()
+                .populate("srId")
+                .populate("items.productId")
+                .exec(),
+            this.productModel.find().populate("companyId").exec(),
+            this.salesRepModel.find().populate("companyId").exec(),
+            this.productReturnModel
+                .find()
+                .populate("srId")
+                .populate("issueId")
+                .populate("items.productId")
+                .exec(),
+            this.companyClaimModel
+                .find()
+                .populate("companyId")
+                .populate("issueId")
+                .populate("paymentId")
+                .exec(),
+            this.companyModel.find().exec(),
+        ]);
+        let filteredProducts = products;
+        let filteredSalesReps = salesReps;
+        let filteredIssues = issues;
+        let filteredPayments = payments;
+        let filteredReturns = returns;
+        let filteredClaims = claims;
+        console.log("[SRPaymentsService] getOptimized - filteredClaims BEFORE issueClaimMap population:", filteredClaims);
+        const getCompanyIdString = (obj) => {
+            if (!obj || !obj.companyId)
+                return undefined;
+            return typeof obj.companyId === "string"
+                ? obj.companyId
+                : String(obj.companyId._id);
+        };
+        if (companyId) {
+            filteredProducts = products.filter((p) => getCompanyIdString(p) === companyId);
+            filteredSalesReps = salesReps.filter((sr) => getCompanyIdString(sr) === companyId);
+            const companyProductIds = filteredProducts.map((p) => String(p._id));
+            filteredIssues = issues.filter((issue) => issue.items.some((item) => {
+                var _a;
+                return companyProductIds.includes(String(((_a = item.productId) === null || _a === void 0 ? void 0 : _a._id) || item.productId));
+            }));
+            const filteredIssueIds = filteredIssues.map((issue) => String(issue._id));
+            filteredPayments = payments.filter((payment) => {
+                var _a;
+                return filteredIssueIds.includes(String(((_a = payment.issueId) === null || _a === void 0 ? void 0 : _a._id) || payment.issueId));
+            });
+            filteredReturns = returns.filter((ret) => {
+                var _a;
+                return filteredIssueIds.includes(String(((_a = ret.issueId) === null || _a === void 0 ? void 0 : _a._id) || ret.issueId));
+            });
+            filteredClaims = claims.filter((claim) => getCompanyIdString(claim) === companyId);
+        }
+        const dueAmounts = {};
+        const issueReceivedMap = {};
+        filteredPayments.forEach((payment) => {
+            var _a;
+            const issueId = typeof payment.issueId === "string"
+                ? payment.issueId
+                : String(((_a = payment.issueId) === null || _a === void 0 ? void 0 : _a._id) || payment.issueId);
+            issueReceivedMap[issueId] =
+                (issueReceivedMap[issueId] || 0) + (payment.receivedAmount || 0);
+        });
+        const issueReturnMap = {};
+        filteredReturns.forEach((returnDoc) => {
+            var _a;
+            const issueId = typeof returnDoc.issueId === "string"
+                ? returnDoc.issueId
+                : String(((_a = returnDoc.issueId) === null || _a === void 0 ? void 0 : _a._id) || returnDoc.issueId);
+            let totalReturnValue = 0;
+            returnDoc.items.forEach((returnItem) => {
+                const product = filteredProducts.find((p) => String(p._id) === String(returnItem.productId));
+                if (product) {
+                    totalReturnValue += returnItem.quantity * product.tradePrice;
                 }
-                catch (error) {
-                    const issue = payment.issueId;
-                    const totalAmount = (issue === null || issue === void 0 ? void 0 : issue.totalAmount) || payment.totalExpected || 0;
-                    const receivedAmount = payment.totalReceived || 0;
-                    paymentObj.totalAmount = totalAmount;
-                    paymentObj.receivedAmount = receivedAmount;
-                    paymentObj.due = Math.max(0, totalAmount - receivedAmount);
+            });
+            issueReturnMap[issueId] =
+                (issueReturnMap[issueId] || 0) + totalReturnValue;
+        });
+        const issueClaimMap = {};
+        filteredPayments.forEach((payment) => {
+            var _a;
+            const issueId = typeof payment.issueId === "string"
+                ? payment.issueId
+                : String(((_a = payment.issueId) === null || _a === void 0 ? void 0 : _a._id) || payment.issueId);
+            issueClaimMap[issueId] =
+                (issueClaimMap[issueId] || 0) + (payment.companyClaim || 0);
+        });
+        for (const issue of filteredIssues) {
+            const issueIdString = String(issue._id);
+            let adjustedTotalAmount = issue.totalAmount || 0;
+            adjustedTotalAmount = Math.max(0, adjustedTotalAmount - (issueReturnMap[issueIdString] || 0));
+            const receivedAmount = issueReceivedMap[issueIdString] || 0;
+            const due = Math.max(0, adjustedTotalAmount - receivedAmount);
+            dueAmounts[issueIdString] = {
+                totalAmount: adjustedTotalAmount,
+                receivedAmount,
+                due,
+            };
+        }
+        for (const payment of filteredPayments) {
+            if (payment.issueId) {
+                const issueIdString = typeof payment.issueId === "string"
+                    ? payment.issueId
+                    : String(((_a = payment.issueId) === null || _a === void 0 ? void 0 : _a._id) || payment.issueId);
+                const calculatedDue = dueAmounts[issueIdString];
+                if (calculatedDue) {
+                    payment.calculatedTotalAmount = calculatedDue.totalAmount;
+                    payment.calculatedReceivedAmount =
+                        calculatedDue.receivedAmount;
+                    payment.calculatedDue = calculatedDue.due;
+                    payment.customerDue = payment.customerDue || 0;
+                }
+                else {
+                    payment.calculatedTotalAmount = payment.totalExpected || 0;
+                    payment.calculatedReceivedAmount =
+                        payment.receivedAmount || 0;
+                    payment.calculatedDue = Math.max(0, (payment.totalExpected || 0) - (payment.receivedAmount || 0));
                 }
             }
             else {
-                paymentObj.totalAmount = payment.totalExpected || 0;
-                paymentObj.receivedAmount = payment.totalReceived || 0;
-                paymentObj.due = Math.max(0, (payment.totalExpected || 0) - (payment.totalReceived || 0));
+                payment.calculatedTotalAmount = payment.totalExpected || 0;
+                payment.calculatedReceivedAmount = payment.receivedAmount || 0;
+                payment.calculatedDue = Math.max(0, (payment.totalExpected || 0) - (payment.receivedAmount || 0));
             }
-            return paymentObj;
-        }));
-    }
-    async calculateDueAmount(issueId) {
-        const issue = await this.srIssueModel.findById(issueId).exec();
-        if (!issue) {
-            throw new common_1.NotFoundException('Issue not found');
         }
-        const issueIdString = typeof issueId === 'string' ? issueId : String(issueId);
-        const payment = await this.srPaymentModel.findOne({ issueId: issueIdString }).exec();
-        const totalAmount = issue.totalAmount || 0;
-        const receivedAmount = payment ? (payment.totalReceived || 0) : 0;
-        const due = Math.max(0, totalAmount - receivedAmount);
-        return { totalAmount, receivedAmount, due };
+        filteredPayments.sort((a, b) => {
+            const dateA = new Date(a.paymentDate || a.createdAt).getTime();
+            const dateB = new Date(b.paymentDate || b.createdAt).getTime();
+            return dateB - dateA;
+        });
+        console.log("[SRPaymentsService] getOptimized - Final filteredPayments before return:", filteredPayments);
+        console.log("[SRPaymentsService] getOptimized - Final dueAmounts:", dueAmounts);
+        return {
+            payments: filteredPayments,
+            issues: filteredIssues,
+            products: filteredProducts,
+            salesReps: filteredSalesReps,
+            returns: filteredReturns,
+            claims: filteredClaims,
+            companies: companies.filter((c) => !companyId || String(c._id) === companyId),
+            dueAmounts,
+        };
     }
     async findOne(id) {
-        var _a, _b;
+        var _a;
         const payment = await this.srPaymentModel
             .findById(id)
-            .populate('srId')
-            .populate('issueId', 'issueNumber totalAmount')
-            .populate('items.productId')
+            .populate("srId")
+            .populate("issueId", "issueNumber totalAmount")
+            .populate("items.productId")
             .exec();
         if (!payment) {
-            throw new common_1.NotFoundException('SR Payment not found');
+            throw new common_1.NotFoundException("SR Payment not found");
         }
         const paymentObj = payment.toObject();
         if (payment.issueId) {
-            const issueIdString = typeof payment.issueId === 'string'
+            const issueIdString = typeof payment.issueId === "string"
                 ? payment.issueId
-                : ((_b = (_a = payment.issueId) === null || _a === void 0 ? void 0 : _a._id) === null || _b === void 0 ? void 0 : _b.toString()) || String(payment.issueId);
-            try {
-                const { totalAmount, receivedAmount, due } = await this.calculateDueAmount(issueIdString);
-                paymentObj.totalAmount = totalAmount;
-                paymentObj.receivedAmount = receivedAmount;
-                paymentObj.due = due;
+                : String(((_a = payment.issueId) === null || _a === void 0 ? void 0 : _a._id) || payment.issueId);
+            const issue = await this.srIssueModel.findById(issueIdString).exec();
+            if (!issue) {
+                paymentObj.totalAmount = payment.totalExpected || 0;
+                paymentObj.receivedAmount =
+                    payment.receivedAmount || payment.totalReceived || 0;
+                paymentObj.due = Math.max(0, (payment.totalExpected || 0) - (payment.receivedAmount || 0));
+                return paymentObj;
             }
-            catch (error) {
-                const issue = payment.issueId;
-                const totalAmount = (issue === null || issue === void 0 ? void 0 : issue.totalAmount) || payment.totalExpected || 0;
-                const receivedAmount = payment.totalReceived || 0;
-                paymentObj.totalAmount = totalAmount;
-                paymentObj.receivedAmount = receivedAmount;
-                paymentObj.due = Math.max(0, totalAmount - receivedAmount);
+            const paymentsForIssue = await this.srPaymentModel
+                .find({ issueId: issueIdString })
+                .exec();
+            const totalReceivedAmountForIssue = paymentsForIssue.reduce((sum, p) => sum + (p.receivedAmount || 0), 0);
+            const returnsForIssue = await this.productReturnModel
+                .find({ issueId: issueIdString })
+                .populate("items.productId")
+                .exec();
+            let adjustedTotalAmount = 0;
+            for (const issueItem of issue.items) {
+                adjustedTotalAmount += issueItem.quantity * issueItem.tradePrice;
             }
+            for (const returnDoc of returnsForIssue) {
+                for (const returnItem of returnDoc.items) {
+                    const product = await this.productModel
+                        .findById(returnItem.productId)
+                        .exec();
+                    if (product) {
+                        const returnValue = returnItem.quantity * (product.tradePrice || 0);
+                        adjustedTotalAmount -= returnValue;
+                    }
+                }
+            }
+            adjustedTotalAmount = Math.max(0, adjustedTotalAmount);
+            const claimsForIssue = await this.companyClaimModel
+                .find({ issueId: issueIdString })
+                .exec();
+            const totalCompanyClaimForIssue = claimsForIssue.reduce((sum, claim) => sum + (claim.totalCompanyClaim || 0), 0);
+            adjustedTotalAmount = Math.max(0, adjustedTotalAmount - totalCompanyClaimForIssue);
+            paymentObj.totalAmount = adjustedTotalAmount;
+            paymentObj.totalReceivedAmount = totalReceivedAmountForIssue;
+            paymentObj.receivedAmount =
+                payment.receivedAmount || payment.totalReceived || 0;
+            paymentObj.due = Math.max(0, adjustedTotalAmount - totalReceivedAmountForIssue);
         }
         else {
             paymentObj.totalAmount = payment.totalExpected || 0;
-            paymentObj.receivedAmount = payment.totalReceived || 0;
-            paymentObj.due = Math.max(0, (payment.totalExpected || 0) - (payment.totalReceived || 0));
+            paymentObj.receivedAmount =
+                payment.receivedAmount || payment.totalReceived || 0;
+            paymentObj.due = Math.max(0, (payment.totalExpected || 0) - paymentObj.receivedAmount);
         }
         return paymentObj;
     }
     async findBySR(srId) {
-        return this.srPaymentModel
-            .find({ srId })
-            .populate('items.productId', 'name sku')
-            .sort({ paymentDate: -1 })
-            .exec();
+        const { payments } = await this.getOptimized();
+        return payments.filter((p) => {
+            var _a;
+            const pSrId = typeof p.srId === "string"
+                ? p.srId
+                : String(((_a = p.srId) === null || _a === void 0 ? void 0 : _a._id) || p.srId);
+            return pSrId === srId;
+        });
     }
     async update(id, dto) {
-        var _a, _b, _c, _d;
-        console.log('📝 UPDATE PAYMENT - Payment ID:', id);
-        console.log('📝 UPDATE PAYMENT - Received DTO:', JSON.stringify(dto, null, 2));
+        if (dto.receiptNumber === null ||
+            (dto.receiptNumber !== undefined && dto.receiptNumber.trim() === "")) {
+            dto.receiptNumber = undefined;
+        }
         const payment = await this.srPaymentModel.findById(id).exec();
         if (!payment) {
-            throw new common_1.NotFoundException('SR Payment not found');
-        }
-        console.log('📝 UPDATE PAYMENT - Current payment:', {
-            receiptNumber: payment.receiptNumber,
-            currentTotalReceived: payment.totalReceived,
-            currentTotalExpected: payment.totalExpected,
-            issueId: payment.issueId
-        });
-        if (payment.issueId) {
-            const issueIdString = typeof payment.issueId === 'string' ? payment.issueId : String(payment.issueId);
-            const { totalAmount, receivedAmount, due } = await this.calculateDueAmount(issueIdString);
-            console.log('📝 UPDATE PAYMENT - Due calculation:', { totalAmount, receivedAmount, due });
-            if (due === 0) {
-                console.log('❌ UPDATE PAYMENT - Blocked: Payment is fully paid (due = 0)');
-                throw new common_1.ConflictException('Cannot edit payment: Issue is fully paid (due = 0)');
-            }
-            if (dto.items && dto.items.length > 0) {
-                const newTotalReceived = dto.items.reduce((sum, item) => {
-                    return sum + (item.quantity * item.tradePrice);
-                }, 0);
-                const maxAllowedReceived = totalAmount;
-                if (newTotalReceived > maxAllowedReceived) {
-                    console.log('❌ UPDATE PAYMENT - Blocked: New received amount exceeds issue total');
-                    throw new common_1.ConflictException(`Cannot update payment: Received amount (${newTotalReceived}) exceeds issue total (${totalAmount}). Maximum allowed: ${totalAmount}`);
-                }
-                const currentReceived = receivedAmount;
-                const maxAllowedForEdit = currentReceived + due;
-                if (newTotalReceived > maxAllowedForEdit) {
-                    console.log('❌ UPDATE PAYMENT - Blocked: New received amount exceeds due amount');
-                    throw new common_1.ConflictException(`Cannot update payment: Received amount (${newTotalReceived}) cannot exceed ${maxAllowedForEdit}. Current received: ${currentReceived}, Due: ${due}`);
-                }
-            }
+            throw new common_1.NotFoundException("SR Payment not found");
         }
         if (dto.items && dto.items.length > 0) {
-            const issueId = dto.issueId || payment.issueId;
-            if (issueId) {
-                const issueIdString = typeof issueId === 'string' ? issueId : String(issueId);
-                const issue = await this.srIssueModel.findById(issueIdString).exec();
-                if (!issue) {
-                    throw new common_1.NotFoundException('Issue not found');
-                }
-                const srId = dto.srId || payment.srId;
-                const srIdString = typeof srId === 'string' ? srId : String(srId);
-                const issueSrId = typeof issue.srId === 'string' ? issue.srId : (_b = (_a = issue.srId) === null || _a === void 0 ? void 0 : _a._id) === null || _b === void 0 ? void 0 : _b.toString();
-                if (issueSrId !== srIdString) {
-                    throw new common_1.ConflictException('Issue does not belong to the selected Sales Rep');
-                }
-                const issueProductIds = issue.items.map(item => {
-                    var _a, _b;
-                    const productId = typeof item.productId === 'string' ? item.productId : (_b = (_a = item.productId) === null || _a === void 0 ? void 0 : _a._id) === null || _b === void 0 ? void 0 : _b.toString();
-                    return productId;
-                });
-                for (const paymentItem of dto.items) {
-                    const productId = typeof paymentItem.productId === 'string' ? paymentItem.productId : (_d = (_c = paymentItem.productId) === null || _c === void 0 ? void 0 : _c._id) === null || _d === void 0 ? void 0 : _d.toString();
-                    if (!issueProductIds.includes(productId)) {
-                        throw new common_1.ConflictException(`Product ${productId} is not part of issue ${issueIdString}`);
-                    }
-                    const issueItem = issue.items.find(item => {
-                        var _a, _b;
-                        const itemProductId = typeof item.productId === 'string' ? item.productId : (_b = (_a = item.productId) === null || _a === void 0 ? void 0 : _a._id) === null || _b === void 0 ? void 0 : _b.toString();
-                        return itemProductId === productId;
-                    });
-                    if (issueItem && paymentItem.quantity > issueItem.quantity) {
-                        throw new common_1.ConflictException(`Payment quantity (${paymentItem.quantity}) exceeds issue quantity (${issueItem.quantity}) for product ${productId}`);
-                    }
-                    const product = await this.productModel.findById(productId).exec();
-                    if (!product) {
-                        throw new common_1.NotFoundException(`Product ${productId} not found`);
-                    }
-                }
-                const issueTotal = issue.totalAmount || 0;
-                const paymentTotal = dto.items.reduce((sum, item) => sum + (item.quantity * item.dealerPrice), 0);
-                if (paymentTotal > issueTotal) {
-                    throw new common_1.ConflictException(`Payment amount (${paymentTotal}) exceeds issue total (${issueTotal})`);
-                }
-                const totalReceived = dto.items.reduce((sum, item) => sum + (item.quantity * item.tradePrice), 0);
-                if (totalReceived > paymentTotal) {
-                    throw new common_1.ConflictException(`Received amount (${totalReceived}) cannot exceed expected amount (${paymentTotal}). Overpayment is not allowed.`);
-                }
-            }
             let totalExpected = 0;
             let totalReceived = 0;
             let totalDiscount = 0;
             const items = dto.items.map((item) => {
-                const expected = item.quantity * item.dealerPrice;
+                var _a;
+                const expected = item.quantity * item.tradePrice;
                 const received = item.quantity * item.tradePrice;
                 const discount = expected - received;
                 totalExpected += expected;
                 totalReceived += received;
                 totalDiscount += discount;
-                return Object.assign(Object.assign({}, item), { discount });
+                return {
+                    productId: typeof item.productId === "string"
+                        ? item.productId
+                        : (_a = item.productId) === null || _a === void 0 ? void 0 : _a._id,
+                    quantity: item.quantity,
+                    dealerPrice: item.dealerPrice,
+                    tradePrice: item.tradePrice,
+                    discount,
+                };
             });
             const updateData = Object.assign(Object.assign({}, dto), { items,
-                totalExpected,
-                totalReceived,
-                totalDiscount });
-            console.log('📝 UPDATE PAYMENT - Update data:', {
-                totalExpected,
-                totalReceived,
-                totalDiscount,
-                itemsCount: items.length
-            });
+                totalExpected, totalReceived: (payment.totalReceived || 0) + (dto.receivedAmount || 0), totalDiscount, receivedAmount: (payment.receivedAmount || 0) + (dto.receivedAmount || 0) });
+            if (dto.receiptNumber && dto.receiptNumber.trim() !== "") {
+                updateData.receiptNumber = dto.receiptNumber;
+            }
+            else if (!payment.receiptNumber &&
+                (!dto.receiptNumber || dto.receiptNumber.trim() === "")) {
+                updateData.receiptNumber = await this.generateReceiptNumber();
+            }
+            else if (dto.receiptNumber === undefined) {
+                delete updateData.receiptNumber;
+            }
+            else if (dto.receiptNumber.trim() === "") {
+                delete updateData.receiptNumber;
+            }
+            if (dto.companyClaim !== undefined) {
+                updateData.companyClaim = dto.companyClaim;
+            }
+            if (dto.customerInfo !== undefined) {
+                updateData.customerInfo = dto.customerInfo;
+            }
+            if (dto.customerDue !== undefined) {
+                updateData.customerDue = dto.customerDue;
+            }
+            if (dto.notes) {
+                updateData.notes = payment.notes
+                    ? `${payment.notes}\n${new Date().toLocaleString()}: ${dto.notes}`
+                    : dto.notes;
+            }
             const updated = await this.srPaymentModel
                 .findByIdAndUpdate(id, { $set: updateData }, { new: true })
-                .populate('srId', 'name phone')
-                .populate('issueId', 'issueNumber')
-                .populate('items.productId', 'name sku')
+                .populate("srId", "name phone")
+                .populate("issueId", "issueNumber")
+                .populate("items.productId", "name sku")
                 .exec();
-            console.log('✅ UPDATE PAYMENT - Payment updated:', {
-                receiptNumber: updated.receiptNumber,
-                newTotalReceived: updated.totalReceived,
-                newTotalExpected: updated.totalExpected
-            });
-            try {
-                await this.updateClaimFromPayment(updated);
-            }
-            catch (error) {
-                console.error('Failed to auto-update claim for payment:', error);
+            if (updated.companyClaim && updated.companyClaim > 0) {
+                try {
+                    await this.updateClaimFromPayment(updated);
+                }
+                catch (error) {
+                    console.error("Failed to auto-update claim for payment:", error);
+                }
             }
             return updated;
         }
         else {
             const updated = await this.srPaymentModel
                 .findByIdAndUpdate(id, { $set: dto }, { new: true })
-                .populate('srId', 'name phone')
-                .populate('issueId', 'issueNumber')
-                .populate('items.productId', 'name sku')
+                .populate("srId", "name phone")
+                .populate("issueId", "issueNumber")
+                .populate("items.productId", "name sku")
                 .exec();
             return updated;
         }
     }
     async remove(id) {
-        const claim = await this.companyClaimModel.findOne({ paymentId: id }).exec();
+        const claim = await this.companyClaimModel
+            .findOne({ paymentId: id })
+            .exec();
         if (claim) {
             await this.companyClaimModel.findByIdAndDelete(claim._id).exec();
         }
         const res = await this.srPaymentModel.findByIdAndDelete(id).exec();
         if (!res) {
-            throw new common_1.NotFoundException('SR Payment not found');
+            throw new common_1.NotFoundException("SR Payment not found");
         }
     }
 };
@@ -716,7 +773,9 @@ exports.SRPaymentsService = SRPaymentsService = __decorate([
     __param(3, (0, mongoose_1.InjectModel)(product_schema_1.Product.name)),
     __param(4, (0, mongoose_1.InjectModel)(company_schema_1.Company.name)),
     __param(5, (0, mongoose_1.InjectModel)(company_claim_schema_1.CompanyClaim.name)),
+    __param(6, (0, mongoose_1.InjectModel)(product_return_schema_1.ProductReturn.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,

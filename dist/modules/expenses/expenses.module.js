@@ -17,7 +17,9 @@ let ExpensesModule = class ExpensesModule {
 exports.ExpensesModule = ExpensesModule;
 exports.ExpensesModule = ExpensesModule = __decorate([
     (0, common_1.Module)({
-        imports: [mongoose_1.MongooseModule.forFeature([{ name: expense_schema_1.Expense.name, schema: expense_schema_1.ExpenseSchema }])],
+        imports: [
+            mongoose_1.MongooseModule.forFeature([{ name: expense_schema_1.Expense.name, schema: expense_schema_1.ExpenseSchema }]),
+        ],
         controllers: [expenses_controller_1.ExpensesController],
         providers: [expenses_service_1.ExpensesService],
         exports: [expenses_service_1.ExpensesService],

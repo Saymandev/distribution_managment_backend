@@ -1,9 +1,9 @@
-import { Model } from 'mongoose';
-import { CompanyClaimDocument } from '../../database/schemas/company-claim.schema';
-import { Notification, NotificationDocument } from '../../database/schemas/notification.schema';
-import { ProductDocument } from '../../database/schemas/product.schema';
-import { SRIssueDocument } from '../../database/schemas/sr-issue.schema';
-import { SRPaymentDocument } from '../../database/schemas/sr-payment.schema';
+import { Model } from "mongoose";
+import { CompanyClaimDocument } from "../../database/schemas/company-claim.schema";
+import { Notification, NotificationDocument } from "../../database/schemas/notification.schema";
+import { ProductDocument } from "../../database/schemas/product.schema";
+import { SRIssueDocument } from "../../database/schemas/sr-issue.schema";
+import { SRPaymentDocument } from "../../database/schemas/sr-payment.schema";
 export declare class NotificationsService {
     private readonly notificationModel;
     private readonly productModel;

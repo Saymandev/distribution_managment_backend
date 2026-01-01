@@ -1,10 +1,10 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { InjectModel } from '@nestjs/mongoose';
-import * as bcrypt from 'bcrypt';
-import { Model } from 'mongoose';
-import { User, UserDocument } from '../../database/schemas/user.schema';
-import { LoginDto } from './dto/login.dto';
+import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import { InjectModel } from "@nestjs/mongoose";
+import * as bcrypt from "bcrypt";
+import { Model } from "mongoose";
+import { User, UserDocument } from "../../database/schemas/user.schema";
+import { LoginDto } from "./dto/login.dto";
 
 @Injectable()
 export class AuthService {
@@ -16,18 +16,20 @@ export class AuthService {
   async validateUser(email: string, password: string): Promise<any> {
     const user = await this.userModel.findOne({ email, isActive: true }).exec();
     if (!user) {
-      console.error(`Login attempt failed: User not found or inactive - ${email}`);
-      throw new UnauthorizedException('Invalid credentials');
+      console.error(
+        `Login attempt failed: User not found or inactive - ${email}`,
+      );
+      throw new UnauthorizedException("Invalid credentials");
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       console.error(`Login attempt failed: Invalid password - ${email}`);
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException("Invalid credentials");
     }
 
     console.log(`Login successful: ${email}`);
-    const { password: _, ...result } = user.toObject();
+    const { password: _password, ...result } = user.toObject();
     return result;
   }
 
@@ -46,18 +48,17 @@ export class AuthService {
   }
 
   async validateToken(payload: any) {
-    console.log('validateToken - payload.sub:', payload.sub);
+    console.log("validateToken - payload.sub:", payload.sub);
     const user = await this.userModel.findById(payload.sub).exec();
     if (!user) {
-      console.error('validateToken - user not found for ID:', payload.sub);
-      throw new UnauthorizedException('User not found');
+      console.error("validateToken - user not found for ID:", payload.sub);
+      throw new UnauthorizedException("User not found");
     }
     if (!user.isActive) {
-      console.error('validateToken - user inactive:', user.email);
-      throw new UnauthorizedException('User is inactive');
+      console.error("validateToken - user inactive:", user.email);
+      throw new UnauthorizedException("User is inactive");
     }
-    console.log('validateToken - success for:', user.email);
+    console.log("validateToken - success for:", user.email);
     return user;
   }
 }
-

@@ -34,12 +34,16 @@ exports.NotificationsModule = NotificationsModule = __decorate([
                 { name: company_claim_schema_1.CompanyClaim.name, schema: company_claim_schema_1.CompanyClaimSchema },
             ]),
             jwt_1.JwtModule.register({
-                secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+                secret: process.env.JWT_SECRET || "your-secret-key-change-in-production",
             }),
             schedule_1.ScheduleModule.forRoot(),
         ],
         controllers: [notifications_controller_1.NotificationsController],
-        providers: [notifications_service_1.NotificationsService, notifications_gateway_1.NotificationsGateway, notifications_scheduler_1.NotificationsScheduler],
+        providers: [
+            notifications_service_1.NotificationsService,
+            notifications_gateway_1.NotificationsGateway,
+            notifications_scheduler_1.NotificationsScheduler,
+        ],
         exports: [notifications_service_1.NotificationsService, notifications_gateway_1.NotificationsGateway],
     })
 ], NotificationsModule);

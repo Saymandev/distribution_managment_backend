@@ -21,18 +21,12 @@ let ReportsController = class ReportsController {
         this.reportsService = reportsService;
     }
     getDashboard(req, companyId) {
-        console.log('Dashboard request - user:', req.user);
+        console.log("Dashboard request - user:", req.user);
         return this.reportsService.getDashboard(companyId);
     }
     getProfitLoss(companyId, startDate, endDate) {
-        let start = startDate ? new Date(startDate) : undefined;
-        let end = endDate ? new Date(endDate) : undefined;
-        if (start) {
-            start.setHours(0, 0, 0, 0);
-        }
-        if (end) {
-            end.setHours(23, 59, 59, 999);
-        }
+        const start = startDate ? this.parseDateString(startDate, true) : undefined;
+        const end = endDate ? this.parseDateString(endDate, false) : undefined;
         return this.reportsService.getProfitLoss(companyId, start, end);
     }
     getDueAmounts(companyId) {
@@ -44,57 +38,147 @@ let ReportsController = class ReportsController {
     getMonthlyData(companyId) {
         return this.reportsService.getMonthlyData(companyId);
     }
-    getStockReport() {
-        return this.reportsService.getStockReport();
+    getFloorStockReport(companyId) {
+        return this.reportsService.getFloorStockReport(companyId);
+    }
+    getDuesReport(companyId) {
+        return this.reportsService.getDuesReport(companyId);
+    }
+    getPendingDeliveries(companyId, page, limit) {
+        const pageNum = page ? parseInt(page, 10) : 1;
+        const limitNum = limit ? parseInt(limit, 10) : 10;
+        return this.reportsService.getPendingDeliveries(companyId, pageNum, limitNum);
+    }
+    getProductHistory(productId, startDate, endDate) {
+        const start = startDate ? new Date(startDate) : undefined;
+        const end = endDate ? new Date(endDate) : undefined;
+        return this.reportsService.getProductHistory(productId, start, end);
+    }
+    getFinancialOverview(companyId) {
+        return this.reportsService.getFinancialOverview(companyId);
+    }
+    getMonthlyReport(companyId, startDate, endDate) {
+        console.log(`📊 Monthly report controller: companyId="${companyId}", startDate="${startDate}", endDate="${endDate}"`);
+        const start = startDate ? this.parseDateString(startDate, true) : undefined;
+        const end = endDate ? this.parseDateString(endDate, false) : undefined;
+        console.log(`📊 Calling service with companyId="${companyId}"`);
+        return this.reportsService.getMonthlyReport(companyId, start, end);
+    }
+    parseDateString(dateString, isStart) {
+        const [year, month, day] = dateString.split("-").map(Number);
+        const date = new Date(year, month - 1, day);
+        if (isStart) {
+            date.setHours(0, 0, 0, 0);
+        }
+        else {
+            date.setHours(23, 59, 59, 999);
+        }
+        return date;
+    }
+    getDailyFinancialSummary(startDate, endDate, companyId) {
+        const start = startDate ? this.parseDateString(startDate, true) : undefined;
+        const end = endDate ? this.parseDateString(endDate, false) : undefined;
+        return this.reportsService.getDailyFinancialSummary(start, end, companyId);
     }
 };
 exports.ReportsController = ReportsController;
 __decorate([
-    (0, common_1.Get)('dashboard'),
+    (0, common_1.Get)("dashboard"),
     __param(0, (0, common_1.Request)()),
-    __param(1, (0, common_1.Query)('companyId')),
+    __param(1, (0, common_1.Query)("companyId")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], ReportsController.prototype, "getDashboard", null);
 __decorate([
-    (0, common_1.Get)('profit-loss'),
-    __param(0, (0, common_1.Query)('companyId')),
-    __param(1, (0, common_1.Query)('startDate')),
-    __param(2, (0, common_1.Query)('endDate')),
+    (0, common_1.Get)("profit-loss"),
+    __param(0, (0, common_1.Query)("companyId")),
+    __param(1, (0, common_1.Query)("startDate")),
+    __param(2, (0, common_1.Query)("endDate")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", void 0)
 ], ReportsController.prototype, "getProfitLoss", null);
 __decorate([
-    (0, common_1.Get)('due-amounts'),
-    __param(0, (0, common_1.Query)('companyId')),
+    (0, common_1.Get)("due-amounts"),
+    __param(0, (0, common_1.Query)("companyId")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], ReportsController.prototype, "getDueAmounts", null);
 __decorate([
-    (0, common_1.Get)('weekly'),
-    __param(0, (0, common_1.Query)('companyId')),
+    (0, common_1.Get)("weekly"),
+    __param(0, (0, common_1.Query)("companyId")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], ReportsController.prototype, "getWeeklyData", null);
 __decorate([
-    (0, common_1.Get)('monthly'),
-    __param(0, (0, common_1.Query)('companyId')),
+    (0, common_1.Get)("monthly"),
+    __param(0, (0, common_1.Query)("companyId")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], ReportsController.prototype, "getMonthlyData", null);
 __decorate([
-    (0, common_1.Get)('stock'),
+    (0, common_1.Get)("floor-stock"),
+    __param(0, (0, common_1.Query)("companyId")),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
-], ReportsController.prototype, "getStockReport", null);
+], ReportsController.prototype, "getFloorStockReport", null);
+__decorate([
+    (0, common_1.Get)("dues"),
+    __param(0, (0, common_1.Query)("companyId")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], ReportsController.prototype, "getDuesReport", null);
+__decorate([
+    (0, common_1.Get)("pending-deliveries"),
+    __param(0, (0, common_1.Query)("companyId")),
+    __param(1, (0, common_1.Query)("page")),
+    __param(2, (0, common_1.Query)("limit")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", void 0)
+], ReportsController.prototype, "getPendingDeliveries", null);
+__decorate([
+    (0, common_1.Get)("product-history/:productId"),
+    __param(0, (0, common_1.Param)("productId")),
+    __param(1, (0, common_1.Query)("startDate")),
+    __param(2, (0, common_1.Query)("endDate")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", void 0)
+], ReportsController.prototype, "getProductHistory", null);
+__decorate([
+    (0, common_1.Get)("financial-overview"),
+    __param(0, (0, common_1.Query)("companyId")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], ReportsController.prototype, "getFinancialOverview", null);
+__decorate([
+    (0, common_1.Get)("monthly-report"),
+    __param(0, (0, common_1.Query)("companyId")),
+    __param(1, (0, common_1.Query)("startDate")),
+    __param(2, (0, common_1.Query)("endDate")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", void 0)
+], ReportsController.prototype, "getMonthlyReport", null);
+__decorate([
+    (0, common_1.Get)("daily-financial"),
+    __param(0, (0, common_1.Query)("startDate")),
+    __param(1, (0, common_1.Query)("endDate")),
+    __param(2, (0, common_1.Query)("companyId")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", void 0)
+], ReportsController.prototype, "getDailyFinancialSummary", null);
 exports.ReportsController = ReportsController = __decorate([
-    (0, common_1.Controller)('reports'),
+    (0, common_1.Controller)("reports"),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     __metadata("design:paramtypes", [reports_service_1.ReportsService])
 ], ReportsController);

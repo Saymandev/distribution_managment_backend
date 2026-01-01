@@ -10,5 +10,13 @@ export declare class CreateSRPaymentDto {
     issueId?: string;
     items: SRPaymentItemDto[];
     paymentMethod: string;
+    receivedAmount?: number;
+    companyClaim?: number;
+    customerDue?: number;
+    customerInfo?: {
+        name?: string;
+        address?: string;
+        phone?: string;
+    };
     notes?: string;
 }

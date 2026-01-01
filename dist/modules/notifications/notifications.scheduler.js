@@ -20,40 +20,52 @@ let NotificationsScheduler = class NotificationsScheduler {
         this.notificationsGateway = notificationsGateway;
     }
     async handleLowStockCheck() {
-        console.log('🔔 Running low stock check...');
+        console.log("🔔 Running low stock check...");
         const notifications = await this.notificationsService.checkLowStock();
         if (notifications && notifications.length > 0) {
-            notifications.forEach(notif => {
-                const notifObj = notif.toObject ? notif.toObject() : JSON.parse(JSON.stringify(notif));
+            notifications.forEach((notif) => {
+                const notifObj = notif.toObject
+                    ? notif.toObject()
+                    : JSON.parse(JSON.stringify(notif));
                 this.notificationsGateway.emitNewNotification(notifObj);
             });
         }
         const unreadCount = await this.notificationsService.getUnreadCount();
-        this.notificationsGateway.server.to('notifications').emit('unread-count', unreadCount);
+        this.notificationsGateway.server
+            .to("notifications")
+            .emit("unread-count", unreadCount);
     }
     async handlePendingPaymentsCheck() {
-        console.log('🔔 Running pending payments check...');
+        console.log("🔔 Running pending payments check...");
         const notifications = await this.notificationsService.checkPendingPayments();
         if (notifications && notifications.length > 0) {
-            notifications.forEach(notif => {
-                const notifObj = notif.toObject ? notif.toObject() : JSON.parse(JSON.stringify(notif));
+            notifications.forEach((notif) => {
+                const notifObj = notif.toObject
+                    ? notif.toObject()
+                    : JSON.parse(JSON.stringify(notif));
                 this.notificationsGateway.emitNewNotification(notifObj);
             });
         }
         const unreadCount = await this.notificationsService.getUnreadCount();
-        this.notificationsGateway.server.to('notifications').emit('unread-count', unreadCount);
+        this.notificationsGateway.server
+            .to("notifications")
+            .emit("unread-count", unreadCount);
     }
     async handlePendingClaimsCheck() {
-        console.log('🔔 Running pending claims check...');
+        console.log("🔔 Running pending claims check...");
         const notifications = await this.notificationsService.checkPendingClaims();
         if (notifications && notifications.length > 0) {
-            notifications.forEach(notif => {
-                const notifObj = notif.toObject ? notif.toObject() : JSON.parse(JSON.stringify(notif));
+            notifications.forEach((notif) => {
+                const notifObj = notif.toObject
+                    ? notif.toObject()
+                    : JSON.parse(JSON.stringify(notif));
                 this.notificationsGateway.emitNewNotification(notifObj);
             });
         }
         const unreadCount = await this.notificationsService.getUnreadCount();
-        this.notificationsGateway.server.to('notifications').emit('unread-count', unreadCount);
+        this.notificationsGateway.server
+            .to("notifications")
+            .emit("unread-count", unreadCount);
     }
 };
 exports.NotificationsScheduler = NotificationsScheduler;
@@ -64,13 +76,13 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], NotificationsScheduler.prototype, "handleLowStockCheck", null);
 __decorate([
-    (0, schedule_1.Cron)('0 */6 * * *'),
+    (0, schedule_1.Cron)("0 */6 * * *"),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], NotificationsScheduler.prototype, "handlePendingPaymentsCheck", null);
 __decorate([
-    (0, schedule_1.Cron)('0 9 * * *'),
+    (0, schedule_1.Cron)("0 9 * * *"),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)

@@ -1,10 +1,10 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 export type SRIssueDocument = SRIssue & Document;
 
 export class SRIssueItem {
-  @Prop({ type: Types.ObjectId, ref: 'Product', required: true })
+  @Prop({ type: Types.ObjectId, ref: "Product", required: true })
   productId: string;
 
   @Prop({ required: true })
@@ -22,7 +22,7 @@ export class SRIssue {
   @Prop({ required: true, unique: true })
   issueNumber: string; // "ISSUE-001"
 
-  @Prop({ type: Types.ObjectId, ref: 'SalesRep', required: true })
+  @Prop({ type: Types.ObjectId, ref: "SalesRep", required: true })
   srId: string; // Which SR
 
   @Prop({ type: [SRIssueItem], _id: false, required: true })
@@ -36,9 +36,12 @@ export class SRIssue {
 
   @Prop()
   notes?: string;
+
+  // Fields for optimized calculations, populated dynamically by service
+  calculatedTotalAmount?: number;
+  calculatedReceivedAmount?: number;
+  calculatedDue?: number;
 }
 
 export const SRIssueSchema = SchemaFactory.createForClass(SRIssue);
-SRIssueSchema.index({ issueNumber: 1 }, { unique: true });
 SRIssueSchema.index({ srId: 1, issueDate: -1 });
-

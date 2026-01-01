@@ -1,4 +1,12 @@
-import { IsBoolean, IsEmail, IsNotEmpty, IsNumber, IsOptional, IsString, ValidateIf } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  ValidateIf,
+} from "class-validator";
 
 export class CreateCompanyDto {
   @IsString()
@@ -9,7 +17,9 @@ export class CreateCompanyDto {
   @IsNotEmpty()
   code: string;
 
-  @ValidateIf((o) => o.email !== undefined && o.email !== null && o.email !== '')
+  @ValidateIf(
+    (o) => o.email !== undefined && o.email !== null && o.email !== "",
+  )
   @IsEmail()
   @IsOptional()
   email?: string;

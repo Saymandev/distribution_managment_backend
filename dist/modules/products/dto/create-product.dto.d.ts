@@ -5,7 +5,7 @@ export declare class CreateProductDto {
     category?: string;
     unit: string;
     dealerPrice: number;
-    tradePrice: number;
+    commissionPercent: number;
     stock?: number;
     reorderLevel?: number;
     isActive?: boolean;

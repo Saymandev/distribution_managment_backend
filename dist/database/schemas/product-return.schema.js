@@ -27,7 +27,7 @@ class ReturnItem {
 }
 exports.ReturnItem = ReturnItem;
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Product', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "Product", required: true }),
     __metadata("design:type", String)
 ], ReturnItem.prototype, "productId", void 0);
 __decorate([
@@ -50,19 +50,15 @@ __decorate([
     __metadata("design:type", String)
 ], ProductReturn.prototype, "returnType", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Customer' }),
-    __metadata("design:type", String)
-], ProductReturn.prototype, "customerId", void 0);
-__decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'SalesRep' }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "SalesRep" }),
     __metadata("design:type", String)
 ], ProductReturn.prototype, "srId", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Company' }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "Company" }),
     __metadata("design:type", String)
 ], ProductReturn.prototype, "companyId", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'SRIssue' }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "SRIssue" }),
     __metadata("design:type", String)
 ], ProductReturn.prototype, "issueId", void 0);
 __decorate([
@@ -85,6 +81,5 @@ exports.ProductReturn = ProductReturn = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })
 ], ProductReturn);
 exports.ProductReturnSchema = mongoose_1.SchemaFactory.createForClass(ProductReturn);
-exports.ProductReturnSchema.index({ returnNumber: 1 }, { unique: true });
 exports.ProductReturnSchema.index({ returnType: 1, status: 1 });
 //# sourceMappingURL=product-return.schema.js.map

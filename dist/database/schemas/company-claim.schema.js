@@ -22,7 +22,7 @@ class ClaimItem {
 }
 exports.ClaimItem = ClaimItem;
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Product', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "Product", required: true }),
     __metadata("design:type", String)
 ], ClaimItem.prototype, "productId", void 0);
 __decorate([
@@ -36,11 +36,11 @@ __decorate([
 __decorate([
     (0, mongoose_1.Prop)({ required: true, type: Number }),
     __metadata("design:type", Number)
-], ClaimItem.prototype, "commissionRate", void 0);
+], ClaimItem.prototype, "tradePrice", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ required: true, type: Number }),
     __metadata("design:type", Number)
-], ClaimItem.prototype, "commissionAmount", void 0);
+], ClaimItem.prototype, "discount", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ required: true, type: Number }),
     __metadata("design:type", Number)
@@ -57,15 +57,15 @@ __decorate([
     __metadata("design:type", String)
 ], CompanyClaim.prototype, "claimNumber", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Company', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "Company", required: true }),
     __metadata("design:type", String)
 ], CompanyClaim.prototype, "companyId", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'SRPayment' }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "SRPayment" }),
     __metadata("design:type", String)
 ], CompanyClaim.prototype, "paymentId", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'SRIssue' }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "SRIssue" }),
     __metadata("design:type", String)
 ], CompanyClaim.prototype, "issueId", void 0);
 __decorate([
@@ -79,11 +79,7 @@ __decorate([
 __decorate([
     (0, mongoose_1.Prop)({ required: true, type: Number }),
     __metadata("design:type", Number)
-], CompanyClaim.prototype, "totalCommission", void 0);
-__decorate([
-    (0, mongoose_1.Prop)({ required: true, type: Number }),
-    __metadata("design:type", Number)
-], CompanyClaim.prototype, "totalClaim", void 0);
+], CompanyClaim.prototype, "totalCompanyClaim", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ required: true, type: Number }),
     __metadata("design:type", Number)
@@ -108,7 +104,6 @@ exports.CompanyClaim = CompanyClaim = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })
 ], CompanyClaim);
 exports.CompanyClaimSchema = mongoose_1.SchemaFactory.createForClass(CompanyClaim);
-exports.CompanyClaimSchema.index({ claimNumber: 1 }, { unique: true });
 exports.CompanyClaimSchema.index({ companyId: 1, status: 1 });
 exports.CompanyClaimSchema.index({ issueId: 1 }, { unique: true, sparse: true });
 //# sourceMappingURL=company-claim.schema.js.map

@@ -17,7 +17,11 @@ let SalesRepsModule = class SalesRepsModule {
 exports.SalesRepsModule = SalesRepsModule;
 exports.SalesRepsModule = SalesRepsModule = __decorate([
     (0, common_1.Module)({
-        imports: [mongoose_1.MongooseModule.forFeature([{ name: salesrep_schema_1.SalesRep.name, schema: salesrep_schema_1.SalesRepSchema }])],
+        imports: [
+            mongoose_1.MongooseModule.forFeature([
+                { name: salesrep_schema_1.SalesRep.name, schema: salesrep_schema_1.SalesRepSchema },
+            ]),
+        ],
         controllers: [salesreps_controller_1.SalesRepsController],
         providers: [salesreps_service_1.SalesRepsService],
         exports: [salesreps_service_1.SalesRepsService],

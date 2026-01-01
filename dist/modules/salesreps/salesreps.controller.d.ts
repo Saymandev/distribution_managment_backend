@@ -1,6 +1,6 @@
-import { SalesRepsService } from './salesreps.service';
-import { CreateSalesRepDto } from './dto/create-salesrep.dto';
-import { UpdateSalesRepDto } from './dto/update-salesrep.dto';
+import { SalesRepsService } from "./salesreps.service";
+import { CreateSalesRepDto } from "./dto/create-salesrep.dto";
+import { UpdateSalesRepDto } from "./dto/update-salesrep.dto";
 export declare class SalesRepsController {
     private readonly salesRepsService;
     constructor(salesRepsService: SalesRepsService);

@@ -24,7 +24,7 @@ let CompaniesService = class CompaniesService {
     async create(dto) {
         const existing = await this.companyModel.findOne({ code: dto.code }).exec();
         if (existing) {
-            throw new common_1.ConflictException('Company with this code already exists');
+            throw new common_1.ConflictException("Company with this code already exists");
         }
         const created = new this.companyModel(dto);
         return created.save();
@@ -35,7 +35,7 @@ let CompaniesService = class CompaniesService {
     async findOne(id) {
         const company = await this.companyModel.findById(id).exec();
         if (!company) {
-            throw new common_1.NotFoundException('Company not found');
+            throw new common_1.NotFoundException("Company not found");
         }
         return company;
     }
@@ -44,14 +44,14 @@ let CompaniesService = class CompaniesService {
             .findByIdAndUpdate(id, { $set: dto }, { new: true })
             .exec();
         if (!updated) {
-            throw new common_1.NotFoundException('Company not found');
+            throw new common_1.NotFoundException("Company not found");
         }
         return updated;
     }
     async remove(id) {
         const res = await this.companyModel.findByIdAndDelete(id).exec();
         if (!res) {
-            throw new common_1.NotFoundException('Company not found');
+            throw new common_1.NotFoundException("Company not found");
         }
     }
 };

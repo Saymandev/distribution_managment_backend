@@ -1,5 +1,15 @@
-import { IsString, IsNotEmpty, IsArray, ValidateNested, IsMongoId, IsNumber, IsOptional, Min, IsEnum } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type } from "class-transformer";
+import {
+  IsArray,
+  IsEnum,
+  IsMongoId,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateNested,
+} from "class-validator";
 
 export class SRPaymentItemDto {
   @IsMongoId()
@@ -37,12 +47,33 @@ export class CreateSRPaymentDto {
   @Type(() => SRPaymentItemDto)
   items: SRPaymentItemDto[];
 
-  @IsEnum(['cash', 'bank', 'bkash', 'nagad', 'rocket'])
+  @IsEnum(["cash", "bank", "bkash", "nagad", "rocket"])
   @IsNotEmpty()
   paymentMethod: string;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  receivedAmount?: number; // Actual cash received from customer
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  companyClaim?: number; // Discount given by SR (to be claimed from company)
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  customerDue?: number; // Remaining amount customer owes
+
+  @IsOptional()
+  customerInfo?: {
+    name?: string;
+    address?: string;
+    phone?: string;
+  };
 
   @IsString()
   @IsOptional()
   notes?: string;
 }
-

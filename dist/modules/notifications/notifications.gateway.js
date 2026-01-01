@@ -22,34 +22,40 @@ let NotificationsGateway = class NotificationsGateway {
     async handleConnection(client) {
         var _a;
         try {
-            const token = client.handshake.auth.token || ((_a = client.handshake.headers.authorization) === null || _a === void 0 ? void 0 : _a.replace('Bearer ', ''));
+            const token = client.handshake.auth.token ||
+                ((_a = client.handshake.headers.authorization) === null || _a === void 0 ? void 0 : _a.replace("Bearer ", ""));
             if (!token) {
                 client.disconnect();
                 return;
             }
             const payload = this.jwtService.verify(token, {
-                secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+                secret: process.env.JWT_SECRET || "your-secret-key-change-in-production",
             });
             client.data.userId = payload.sub;
-            console.log(`✅ Client connected: ${client.id}, User: ${payload.sub}`);
         }
         catch (error) {
-            console.error('❌ WebSocket authentication failed:', error);
+            console.error("❌ WebSocket authentication failed:", error);
             client.disconnect();
         }
     }
-    handleDisconnect(client) {
-        console.log(`Client disconnected: ${client.id}`);
-    }
+    handleDisconnect(_client) { }
     handleJoin(client) {
-        client.join('notifications');
-        console.log(`Client ${client.id} joined notifications room`);
+        client.join("notifications");
+    }
+    handleTest(_client, _data) {
+        _client.emit("test-response", { message: "Hello from backend!" });
     }
     async emitNewNotification(notification) {
-        this.server.to('notifications').emit('new-notification', notification);
+        this.server.to("notifications").emit("new-notification", notification);
     }
     async emitNotificationUpdate(notification) {
-        this.server.to('notifications').emit('notification-update', notification);
+        this.server.to("notifications").emit("notification-update", notification);
+    }
+    async emitClaimStatusUpdate(claimData) {
+        this.server.to("notifications").emit("claim-status-update", claimData);
+    }
+    async emitClaimsDataRefresh() {
+        this.server.to("notifications").emit("claims-data-refresh");
     }
 };
 exports.NotificationsGateway = NotificationsGateway;
@@ -58,16 +64,44 @@ __decorate([
     __metadata("design:type", socket_io_1.Server)
 ], NotificationsGateway.prototype, "server", void 0);
 __decorate([
-    (0, websockets_1.SubscribeMessage)('join'),
+    (0, websockets_1.SubscribeMessage)("join"),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [socket_io_1.Socket]),
     __metadata("design:returntype", void 0)
 ], NotificationsGateway.prototype, "handleJoin", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)("test"),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", void 0)
+], NotificationsGateway.prototype, "handleTest", null);
 exports.NotificationsGateway = NotificationsGateway = __decorate([
     (0, websockets_1.WebSocketGateway)({
         cors: {
-            origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+            origin: (origin, callback) => {
+                const allowedOrigins = [
+                    ...(process.env.FRONTEND_URL
+                        ? process.env.FRONTEND_URL.split(",")
+                        : []),
+                    "http://localhost:3000",
+                    "http://localhost:3001",
+                    "https://ro0k004sg00c0884goskw404.ourb.live",
+                ];
+                if (!origin || allowedOrigins.includes(origin)) {
+                    callback(null, true);
+                }
+                else {
+                    callback(new Error("Not allowed by CORS"));
+                }
+            },
             credentials: true,
+            methods: ["GET", "POST"],
+            allowedHeaders: [
+                "Content-Type",
+                "Authorization",
+                "Accept",
+                "X-Requested-With",
+            ],
         },
     }),
     __metadata("design:paramtypes", [notifications_service_1.NotificationsService,

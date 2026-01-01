@@ -1,4 +1,12 @@
-import { IsBoolean, IsMongoId, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsMongoId,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from "class-validator";
 
 export class CreateProductDto {
   @IsString()
@@ -27,7 +35,9 @@ export class CreateProductDto {
 
   @IsNumber()
   @Min(0)
-  tradePrice: number;
+  commissionPercent: number;
+
+  // tradePrice will be calculated automatically in backend logic, do not provide from client
 
   @IsNumber()
   @Min(0)
@@ -43,4 +53,3 @@ export class CreateProductDto {
   @IsOptional()
   isActive?: boolean;
 }
-

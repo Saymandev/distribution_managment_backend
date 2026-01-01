@@ -47,45 +47,55 @@ let NotificationsService = class NotificationsService {
             .exec();
     }
     async markAllAsRead() {
-        await this.notificationModel.updateMany({ read: false }, { read: true, readAt: new Date() }).exec();
+        await this.notificationModel
+            .updateMany({ read: false }, { read: true, readAt: new Date() })
+            .exec();
     }
     async getUnreadCount() {
         return this.notificationModel.countDocuments({ read: false }).exec();
     }
     async checkLowStock() {
         const products = await this.productModel.find({ isActive: true }).exec();
-        const lowStockProducts = products.filter(p => p.stock <= p.reorderLevel && p.stock > 0);
-        const outOfStockProducts = products.filter(p => p.stock === 0);
+        const lowStockProducts = products.filter((p) => p.stock <= p.reorderLevel && p.stock > 0);
+        const outOfStockProducts = products.filter((p) => p.stock === 0);
         const newNotifications = [];
         for (const product of lowStockProducts) {
-            const existing = await this.notificationModel.findOne({
-                'metadata.productId': product._id.toString(),
+            const existing = await this.notificationModel
+                .findOne({
+                "metadata.productId": product._id.toString(),
                 category: notification_schema_1.NotificationCategory.STOCK,
                 read: false,
                 createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
-            }).exec();
+            })
+                .exec();
             if (!existing) {
                 const notif = await this.create({
-                    title: 'Low Stock Alert',
+                    title: "Low Stock Alert",
                     message: `${product.name} stock is below reorder level (${product.stock} ${product.unit} remaining)`,
                     type: notification_schema_1.NotificationType.WARNING,
                     category: notification_schema_1.NotificationCategory.STOCK,
                     link: `/products`,
-                    metadata: { productId: product._id.toString(), stock: product.stock, reorderLevel: product.reorderLevel },
+                    metadata: {
+                        productId: product._id.toString(),
+                        stock: product.stock,
+                        reorderLevel: product.reorderLevel,
+                    },
                 });
                 newNotifications.push(notif);
             }
         }
         for (const product of outOfStockProducts) {
-            const existing = await this.notificationModel.findOne({
-                'metadata.productId': product._id.toString(),
+            const existing = await this.notificationModel
+                .findOne({
+                "metadata.productId": product._id.toString(),
                 category: notification_schema_1.NotificationCategory.STOCK,
                 read: false,
                 createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
-            }).exec();
+            })
+                .exec();
             if (!existing) {
                 const notif = await this.create({
-                    title: 'Out of Stock Alert',
+                    title: "Out of Stock Alert",
                     message: `${product.name} is out of stock`,
                     type: notification_schema_1.NotificationType.ERROR,
                     category: notification_schema_1.NotificationCategory.STOCK,
@@ -101,24 +111,32 @@ let NotificationsService = class NotificationsService {
         const issues = await this.srIssueModel.find().exec();
         const newNotifications = [];
         for (const issue of issues) {
-            const payments = await this.srPaymentModel.find({ issueId: issue._id }).exec();
+            const payments = await this.srPaymentModel
+                .find({ issueId: issue._id })
+                .exec();
             const totalPaid = payments.reduce((sum, p) => sum + p.totalReceived, 0);
             const due = issue.totalAmount - totalPaid;
             if (due > 1000) {
-                const existing = await this.notificationModel.findOne({
-                    'metadata.issueId': issue._id.toString(),
+                const existing = await this.notificationModel
+                    .findOne({
+                    "metadata.issueId": issue._id.toString(),
                     category: notification_schema_1.NotificationCategory.PAYMENT,
                     read: false,
                     createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
-                }).exec();
+                })
+                    .exec();
                 if (!existing) {
                     const notif = await this.create({
-                        title: 'Pending SR Payment',
+                        title: "Pending SR Payment",
                         message: `SR Issue ${issue.issueNumber} has pending payment of ৳${due.toLocaleString()}`,
                         type: notification_schema_1.NotificationType.WARNING,
                         category: notification_schema_1.NotificationCategory.PAYMENT,
                         link: `/sr-payments`,
-                        metadata: { issueId: issue._id.toString(), issueNumber: issue.issueNumber, due },
+                        metadata: {
+                            issueId: issue._id.toString(),
+                            issueNumber: issue.issueNumber,
+                            due,
+                        },
                     });
                     newNotifications.push(notif);
                 }
@@ -128,29 +146,36 @@ let NotificationsService = class NotificationsService {
     }
     async checkPendingClaims() {
         const pendingClaims = await this.companyClaimModel
-            .find({ status: 'pending' })
+            .find({ status: "pending" })
             .sort({ createdAt: -1 })
             .exec();
         const newNotifications = [];
         for (const claim of pendingClaims) {
             const claimDoc = claim;
             const claimCreatedAt = claimDoc.createdAt || new Date();
-            const daysPending = Math.floor((Date.now() - new Date(claimCreatedAt).getTime()) / (24 * 60 * 60 * 1000));
+            const daysPending = Math.floor((Date.now() - new Date(claimCreatedAt).getTime()) /
+                (24 * 60 * 60 * 1000));
             if (daysPending >= 3) {
-                const existing = await this.notificationModel.findOne({
-                    'metadata.claimId': claim._id.toString(),
+                const existing = await this.notificationModel
+                    .findOne({
+                    "metadata.claimId": claim._id.toString(),
                     category: notification_schema_1.NotificationCategory.CLAIM,
                     read: false,
                     createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
-                }).exec();
+                })
+                    .exec();
                 if (!existing) {
                     const notif = await this.create({
-                        title: 'Pending Company Claim',
+                        title: "Pending Company Claim",
                         message: `Company claim ${claim.claimNumber} has been pending for ${daysPending} days`,
                         type: notification_schema_1.NotificationType.WARNING,
                         category: notification_schema_1.NotificationCategory.CLAIM,
                         link: `/company-claims`,
-                        metadata: { claimId: claim._id.toString(), claimNumber: claim.claimNumber, daysPending },
+                        metadata: {
+                            claimId: claim._id.toString(),
+                            claimNumber: claim.claimNumber,
+                            daysPending,
+                        },
                     });
                     newNotifications.push(notif);
                 }

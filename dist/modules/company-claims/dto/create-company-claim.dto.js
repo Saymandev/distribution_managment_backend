@@ -65,7 +65,7 @@ __decorate([
     __metadata("design:type", Array)
 ], CreateCompanyClaimDto.prototype, "items", void 0);
 __decorate([
-    (0, class_validator_1.IsEnum)(['pending', 'claimed', 'paid']),
+    (0, class_validator_1.IsEnum)(["pending", "claimed", "paid"]),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateCompanyClaimDto.prototype, "status", void 0);

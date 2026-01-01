@@ -1,5 +1,14 @@
-import { Type } from 'class-transformer';
-import { IsArray, IsMongoId, IsNotEmpty, IsNumber, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
+import { Type } from "class-transformer";
+import {
+  IsArray,
+  IsMongoId,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateNested,
+} from "class-validator";
 
 export class SRIssueItemDto {
   @IsMongoId()
@@ -37,4 +46,3 @@ export class CreateSRIssueDto {
   @IsOptional()
   notes?: string;
 }
-

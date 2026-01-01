@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 export type SalesRepDocument = SalesRep & Document;
 
@@ -8,7 +8,7 @@ export class SalesRep {
   @Prop({ required: true })
   name: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'Company', required: true })
+  @Prop({ type: Types.ObjectId, ref: "Company", required: true })
   companyId: string; // SR belongs to a specific company
 
   @Prop()
@@ -25,4 +25,3 @@ export class SalesRep {
 }
 
 export const SalesRepSchema = SchemaFactory.createForClass(SalesRep);
-

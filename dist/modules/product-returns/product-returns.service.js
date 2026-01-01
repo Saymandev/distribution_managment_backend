@@ -22,24 +22,28 @@ const product_return_schema_1 = require("../../database/schemas/product-return.s
 const product_schema_1 = require("../../database/schemas/product.schema");
 const sr_issue_schema_1 = require("../../database/schemas/sr-issue.schema");
 const sr_payment_schema_1 = require("../../database/schemas/sr-payment.schema");
+const notifications_gateway_1 = require("../notifications/notifications.gateway");
 let ProductReturnsService = class ProductReturnsService {
-    constructor(productReturnModel, productModel, srIssueModel, srPaymentModel, companyClaimModel, companyModel) {
+    constructor(productReturnModel, productModel, srIssueModel, srPaymentModel, companyClaimModel, companyModel, notificationsGateway) {
         this.productReturnModel = productReturnModel;
         this.productModel = productModel;
         this.srIssueModel = srIssueModel;
         this.srPaymentModel = srPaymentModel;
         this.companyClaimModel = companyClaimModel;
         this.companyModel = companyModel;
+        this.notificationsGateway = notificationsGateway;
     }
     async create(dto) {
         var _a, _b;
-        const existing = await this.productReturnModel.findOne({ returnNumber: dto.returnNumber }).exec();
+        const existing = await this.productReturnModel
+            .findOne({ returnNumber: dto.returnNumber })
+            .exec();
         if (existing) {
-            throw new common_1.ConflictException('Return number already exists');
+            throw new common_1.ConflictException("Return number already exists");
         }
         if (dto.returnType === product_return_schema_1.ReturnType.CUSTOMER_RETURN) {
             if (!dto.customerId && !dto.srId && !dto.issueId) {
-                throw new common_1.BadRequestException('Customer return must have either customerId, srId, or issueId');
+                throw new common_1.BadRequestException("Customer return must have either customerId, srId, or issueId");
             }
             if (dto.issueId) {
                 const issue = await this.srIssueModel.findById(dto.issueId).exec();
@@ -50,21 +54,24 @@ let ProductReturnsService = class ProductReturnsService {
         }
         else if (dto.returnType === product_return_schema_1.ReturnType.DAMAGE_RETURN) {
             if (!dto.companyId && !dto.issueId) {
-                throw new common_1.BadRequestException('Damage return must have either companyId or issueId');
+                throw new common_1.BadRequestException("Damage return must have either companyId or issueId");
             }
             if (dto.issueId && !dto.companyId) {
-                const issue = await this.srIssueModel.findById(dto.issueId).populate('items.productId').exec();
+                const issue = await this.srIssueModel
+                    .findById(dto.issueId)
+                    .populate("items.productId")
+                    .exec();
                 if (!issue) {
                     throw new common_1.NotFoundException(`Issue ${dto.issueId} not found`);
                 }
                 if (issue.items && issue.items.length > 0) {
                     const firstItem = issue.items[0];
-                    const productId = typeof firstItem.productId === 'string'
+                    const productId = typeof firstItem.productId === "string"
                         ? firstItem.productId
                         : (_a = firstItem.productId) === null || _a === void 0 ? void 0 : _a._id;
                     const product = await this.productModel.findById(productId).exec();
                     if (product) {
-                        const companyId = typeof product.companyId === 'string'
+                        const companyId = typeof product.companyId === "string"
                             ? product.companyId
                             : (_b = product.companyId) === null || _b === void 0 ? void 0 : _b._id;
                         dto.companyId = companyId;
@@ -80,11 +87,21 @@ let ProductReturnsService = class ProductReturnsService {
         }
         const returnRecord = new this.productReturnModel(Object.assign(Object.assign({}, dto), { status: product_return_schema_1.ReturnStatus.PENDING, returnDate: new Date() }));
         const saved = await returnRecord.save();
+        setTimeout(async () => {
+            try {
+                await this.notificationsGateway.emitClaimsDataRefresh();
+            }
+            catch (error) {
+                console.error("Failed to emit claims data refresh after returns:", error);
+            }
+        }, 100);
         if (dto.returnType === product_return_schema_1.ReturnType.CUSTOMER_RETURN) {
             for (const item of dto.items) {
-                await this.productModel.findByIdAndUpdate(item.productId, {
+                await this.productModel
+                    .findByIdAndUpdate(item.productId, {
                     $inc: { stock: item.quantity },
-                }).exec();
+                })
+                    .exec();
             }
         }
         else if (dto.returnType === product_return_schema_1.ReturnType.DAMAGE_RETURN) {
@@ -97,23 +114,21 @@ let ProductReturnsService = class ProductReturnsService {
     async findAll() {
         return this.productReturnModel
             .find()
-            .populate('customerId', 'name code')
-            .populate('srId', 'name phone')
-            .populate('companyId', 'name code')
-            .populate('items.productId', 'name sku')
+            .populate("srId", "name phone")
+            .populate("companyId", "name code")
+            .populate("items.productId", "name sku")
             .sort({ returnDate: -1 })
             .exec();
     }
     async findOne(id) {
         const returnRecord = await this.productReturnModel
             .findById(id)
-            .populate('customerId')
-            .populate('srId')
-            .populate('companyId')
-            .populate('items.productId')
+            .populate("srId")
+            .populate("companyId")
+            .populate("items.productId")
             .exec();
         if (!returnRecord) {
-            throw new common_1.NotFoundException('Product Return not found');
+            throw new common_1.NotFoundException("Product Return not found");
         }
         return returnRecord;
     }
@@ -121,21 +136,24 @@ let ProductReturnsService = class ProductReturnsService {
         var _a;
         const returnRecord = await this.productReturnModel.findById(id).exec();
         if (!returnRecord) {
-            throw new common_1.NotFoundException('Product Return not found');
+            throw new common_1.NotFoundException("Product Return not found");
         }
         const previousStatus = returnRecord.status;
         const updated = await this.productReturnModel
             .findByIdAndUpdate(id, { $set: { status } }, { new: true })
             .exec();
-        if (status === product_return_schema_1.ReturnStatus.RETURNED && previousStatus !== product_return_schema_1.ReturnStatus.RETURNED) {
+        if (status === product_return_schema_1.ReturnStatus.RETURNED &&
+            previousStatus !== product_return_schema_1.ReturnStatus.RETURNED) {
             if (returnRecord.returnType === product_return_schema_1.ReturnType.DAMAGE_RETURN) {
                 for (const item of returnRecord.items) {
-                    const productId = typeof item.productId === 'string'
+                    const productId = typeof item.productId === "string"
                         ? item.productId
                         : (_a = item.productId) === null || _a === void 0 ? void 0 : _a._id;
-                    await this.productModel.findByIdAndUpdate(productId, {
+                    await this.productModel
+                        .findByIdAndUpdate(productId, {
                         $inc: { stock: item.quantity },
-                    }).exec();
+                    })
+                        .exec();
                 }
             }
         }
@@ -145,30 +163,32 @@ let ProductReturnsService = class ProductReturnsService {
         var _a, _b;
         const issue = await this.srIssueModel.findById(issueId).exec();
         if (!issue) {
-            throw new common_1.NotFoundException('Issue not found');
+            throw new common_1.NotFoundException("Issue not found");
         }
         const returnedQuantities = new Map();
-        returnItems.forEach(item => {
+        returnItems.forEach((item) => {
             const current = returnedQuantities.get(item.productId) || 0;
             returnedQuantities.set(item.productId, current + item.quantity);
         });
         const originalTotal = issue.totalAmount || 0;
         let newTotalAmount = 0;
-        const adjustedItems = issue.items.map(issueItem => {
+        const adjustedItems = await Promise.all(issue.items.map(async (issueItem) => {
             var _a;
-            const productId = typeof issueItem.productId === 'string'
+            const productId = typeof issueItem.productId === "string"
                 ? issueItem.productId
                 : (_a = issueItem.productId) === null || _a === void 0 ? void 0 : _a._id;
+            const product = await this.productModel.findById(productId).exec();
+            const currentTradePrice = (product === null || product === void 0 ? void 0 : product.tradePrice) || issueItem.tradePrice;
             const returnedQty = returnedQuantities.get(productId) || 0;
             const newQuantity = Math.max(0, issueItem.quantity - returnedQty);
-            newTotalAmount += newQuantity * issueItem.dealerPrice;
+            newTotalAmount += newQuantity * currentTradePrice;
             return {
                 productId,
                 quantity: newQuantity,
                 dealerPrice: issueItem.dealerPrice,
-                tradePrice: issueItem.tradePrice,
+                tradePrice: currentTradePrice,
             };
-        });
+        }));
         issue.items = adjustedItems;
         issue.totalAmount = newTotalAmount;
         await issue.save();
@@ -177,8 +197,8 @@ let ProductReturnsService = class ProductReturnsService {
             const originalReceived = payment.totalReceived;
             let totalExpected = 0;
             let totalDiscount = 0;
-            const paymentItems = adjustedItems.map(issueItem => {
-                const expectedItemAmount = issueItem.quantity * issueItem.dealerPrice;
+            const paymentItems = adjustedItems.map((issueItem) => {
+                const expectedItemAmount = issueItem.quantity * issueItem.tradePrice;
                 totalExpected += expectedItemAmount;
                 return {
                     productId: issueItem.productId,
@@ -188,15 +208,11 @@ let ProductReturnsService = class ProductReturnsService {
                     discount: 0,
                 };
             });
-            totalDiscount = Math.max(0, totalExpected - originalReceived);
-            const receivedRatio = totalExpected > 0 ? originalReceived / totalExpected : 0;
-            const adjustedPaymentItems = paymentItems.map(item => {
-                const expectedItemAmount = item.quantity * item.dealerPrice;
-                const receivedItemAmount = expectedItemAmount * receivedRatio;
-                const tradePricePerUnit = item.quantity > 0 ? receivedItemAmount / item.quantity : 0;
-                const itemDiscount = expectedItemAmount - receivedItemAmount;
-                return Object.assign(Object.assign({}, item), { tradePrice: tradePricePerUnit, discount: itemDiscount });
+            const adjustedPaymentItems = paymentItems.map((item) => {
+                const itemDiscount = item.quantity * (item.dealerPrice - item.tradePrice);
+                return Object.assign(Object.assign({}, item), { discount: Math.max(0, itemDiscount) });
             });
+            totalDiscount = adjustedPaymentItems.reduce((sum, item) => sum + item.discount, 0);
             payment.items = adjustedPaymentItems;
             payment.totalExpected = totalExpected;
             payment.totalReceived = originalReceived;
@@ -204,41 +220,42 @@ let ProductReturnsService = class ProductReturnsService {
             await payment.save();
             let claim = await this.companyClaimModel.findOne({ issueId }).exec();
             if (!claim) {
-                claim = await this.companyClaimModel.findOne({ paymentId: payment._id }).exec();
+                claim = await this.companyClaimModel
+                    .findOne({ paymentId: payment._id })
+                    .exec();
             }
             if (claim) {
-                const firstProduct = await this.productModel.findById((_a = adjustedItems[0]) === null || _a === void 0 ? void 0 : _a.productId).exec();
+                const firstProduct = await this.productModel
+                    .findById((_a = adjustedItems[0]) === null || _a === void 0 ? void 0 : _a.productId)
+                    .exec();
                 if (firstProduct) {
-                    const companyId = typeof firstProduct.companyId === 'string'
+                    const companyId = typeof firstProduct.companyId === "string"
                         ? firstProduct.companyId
                         : (_b = firstProduct.companyId) === null || _b === void 0 ? void 0 : _b._id;
                     const company = await this.companyModel.findById(companyId).exec();
                     if (company) {
-                        const commissionRate = company.commissionRate || 0;
-                        const claimItems = adjustedPaymentItems.map(paymentItem => {
+                        const claimItems = adjustedPaymentItems.map((paymentItem) => {
                             const dealerPriceTotal = paymentItem.quantity * paymentItem.dealerPrice;
-                            const commissionAmount = dealerPriceTotal * (commissionRate / 100);
+                            const itemDiscount = paymentItem.dealerPrice - paymentItem.tradePrice;
                             const srPayment = paymentItem.quantity * paymentItem.tradePrice;
-                            const netFromCompany = dealerPriceTotal + commissionAmount - srPayment;
+                            const netFromCompany = dealerPriceTotal - srPayment;
                             return {
                                 productId: paymentItem.productId,
                                 quantity: paymentItem.quantity,
                                 dealerPrice: paymentItem.dealerPrice,
-                                commissionRate,
-                                commissionAmount,
+                                tradePrice: paymentItem.tradePrice,
+                                discount: itemDiscount,
                                 srPayment,
                                 netFromCompany,
                             };
                         });
-                        const totalDealerPrice = claimItems.reduce((sum, item) => sum + (item.quantity * item.dealerPrice), 0);
-                        const totalCommission = claimItems.reduce((sum, item) => sum + item.commissionAmount, 0);
-                        const totalClaim = totalDealerPrice + totalCommission;
+                        const totalDealerPrice = claimItems.reduce((sum, item) => sum + item.quantity * item.dealerPrice, 0);
+                        const totalCompanyClaim = payment.companyClaim || 0;
                         const totalSRPayment = payment.totalReceived;
-                        const netFromCompany = totalClaim - totalSRPayment;
+                        const netFromCompany = totalDealerPrice - totalSRPayment;
                         claim.items = claimItems;
                         claim.totalDealerPrice = totalDealerPrice;
-                        claim.totalCommission = totalCommission;
-                        claim.totalClaim = totalClaim;
+                        claim.totalCompanyClaim = totalCompanyClaim;
                         claim.totalSRPayment = totalSRPayment;
                         claim.netFromCompany = netFromCompany;
                         await claim.save();
@@ -262,6 +279,7 @@ exports.ProductReturnsService = ProductReturnsService = __decorate([
         mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,
-        mongoose_2.Model])
+        mongoose_2.Model,
+        notifications_gateway_1.NotificationsGateway])
 ], ProductReturnsService);
 //# sourceMappingURL=product-returns.service.js.map

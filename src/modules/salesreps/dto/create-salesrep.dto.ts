@@ -1,4 +1,12 @@
-import { IsString, IsNotEmpty, IsBoolean, IsOptional, IsEmail, IsMongoId, ValidateIf } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsBoolean,
+  IsOptional,
+  IsEmail,
+  IsMongoId,
+  ValidateIf,
+} from "class-validator";
 
 export class CreateSalesRepDto {
   @IsString()
@@ -13,7 +21,9 @@ export class CreateSalesRepDto {
   @IsOptional()
   phone?: string;
 
-  @ValidateIf((o) => o.email !== undefined && o.email !== null && o.email !== '')
+  @ValidateIf(
+    (o) => o.email !== undefined && o.email !== null && o.email !== "",
+  )
   @IsEmail()
   @IsOptional()
   email?: string;
@@ -26,4 +36,3 @@ export class CreateSalesRepDto {
   @IsOptional()
   isActive?: boolean;
 }
-

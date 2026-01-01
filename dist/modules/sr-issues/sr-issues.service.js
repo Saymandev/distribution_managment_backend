@@ -16,14 +16,20 @@ exports.SRIssuesService = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
+const company_claim_schema_1 = require("../../database/schemas/company-claim.schema");
+const product_return_schema_1 = require("../../database/schemas/product-return.schema");
 const product_schema_1 = require("../../database/schemas/product.schema");
 const salesrep_schema_1 = require("../../database/schemas/salesrep.schema");
 const sr_issue_schema_1 = require("../../database/schemas/sr-issue.schema");
+const sr_payment_schema_1 = require("../../database/schemas/sr-payment.schema");
 let SRIssuesService = class SRIssuesService {
-    constructor(srIssueModel, productModel, salesRepModel) {
+    constructor(srIssueModel, productModel, salesRepModel, srPaymentModel, productReturnModel, companyClaimModel) {
         this.srIssueModel = srIssueModel;
         this.productModel = productModel;
         this.salesRepModel = salesRepModel;
+        this.srPaymentModel = srPaymentModel;
+        this.productReturnModel = productReturnModel;
+        this.companyClaimModel = companyClaimModel;
     }
     async generateIssueNumber() {
         const lastIssue = await this.srIssueModel
@@ -31,14 +37,14 @@ let SRIssuesService = class SRIssuesService {
             .sort({ createdAt: -1 })
             .exec();
         if (!lastIssue || !lastIssue.issueNumber) {
-            return 'ISSUE-001';
+            return "ISSUE-001";
         }
         const match = lastIssue.issueNumber.match(/ISSUE-(\d+)/);
         if (!match) {
-            return 'ISSUE-001';
+            return "ISSUE-001";
         }
-        const lastNumber = parseInt(match[1] || '0');
-        const nextNumber = (lastNumber + 1).toString().padStart(3, '0');
+        const lastNumber = parseInt(match[1] || "0");
+        const nextNumber = (lastNumber + 1).toString().padStart(3, "0");
         return `ISSUE-${nextNumber}`;
     }
     async create(dto) {
@@ -48,11 +54,11 @@ let SRIssuesService = class SRIssuesService {
         }
         const existing = await this.srIssueModel.findOne({ issueNumber }).exec();
         if (existing) {
-            throw new common_1.ConflictException('Issue number already exists');
+            throw new common_1.ConflictException("Issue number already exists");
         }
         const sr = await this.salesRepModel.findById(dto.srId).exec();
         if (!sr) {
-            throw new common_1.NotFoundException('Sales Rep not found');
+            throw new common_1.NotFoundException("Sales Rep not found");
         }
         const productQuantities = new Map();
         const productMap = new Map();
@@ -76,42 +82,157 @@ let SRIssuesService = class SRIssuesService {
         }
         let totalAmount = 0;
         for (const item of dto.items) {
-            totalAmount += item.quantity * item.dealerPrice;
+            totalAmount += item.quantity * item.tradePrice;
         }
         const issue = new this.srIssueModel(Object.assign(Object.assign({}, dto), { issueNumber,
             totalAmount, issueDate: new Date() }));
         for (const item of dto.items) {
-            await this.productModel.findByIdAndUpdate(item.productId, {
+            await this.productModel
+                .findByIdAndUpdate(item.productId, {
                 $inc: { stock: -item.quantity },
-            }).exec();
+            })
+                .exec();
         }
         return issue.save();
     }
     async findAll() {
-        return this.srIssueModel
-            .find()
-            .populate('srId', 'name phone')
-            .populate('items.productId', 'name sku')
-            .sort({ issueDate: -1 })
-            .exec();
+        const { issues } = await this.getOptimized();
+        return issues;
     }
     async findOne(id) {
         const issue = await this.srIssueModel
             .findById(id)
-            .populate('srId')
-            .populate('items.productId')
+            .populate("srId")
+            .populate("items.productId")
+            .lean()
             .exec();
         if (!issue) {
-            throw new common_1.NotFoundException('SR Issue not found');
+            throw new common_1.NotFoundException("SR Issue not found");
         }
-        return issue;
+        const paymentsForIssue = await this.srPaymentModel
+            .find({ issueId: issue._id })
+            .lean()
+            .exec();
+        const totalReceivedAmount = paymentsForIssue.reduce((sum, payment) => sum + (payment.receivedAmount || 0), 0);
+        const returnsForIssue = await this.productReturnModel
+            .find({ issueId: issue._id })
+            .populate("items.productId")
+            .lean()
+            .exec();
+        let adjustedTotalAmount = issue.totalAmount || 0;
+        for (const returnDoc of returnsForIssue) {
+            for (const returnItem of returnDoc.items) {
+                const product = await this.productModel
+                    .findById(returnItem.productId)
+                    .exec();
+                if (product) {
+                    const returnValue = returnItem.quantity * (product.tradePrice || 0);
+                    adjustedTotalAmount -= returnValue;
+                }
+            }
+        }
+        adjustedTotalAmount = Math.max(0, adjustedTotalAmount);
+        const due = Math.max(0, adjustedTotalAmount - totalReceivedAmount);
+        const enrichedIssue = Object.assign(Object.assign({}, issue), { calculatedTotalAmount: adjustedTotalAmount, calculatedReceivedAmount: totalReceivedAmount, calculatedDue: due });
+        return enrichedIssue;
     }
     async findBySR(srId) {
-        return this.srIssueModel
-            .find({ srId })
-            .populate('items.productId', 'name sku')
-            .sort({ issueDate: -1 })
-            .exec();
+        const { issues } = await this.getOptimized();
+        return issues.filter((issue) => {
+            var _a, _b;
+            const issueSrId = typeof issue.srId === "string"
+                ? issue.srId
+                : (_b = (_a = issue.srId) === null || _a === void 0 ? void 0 : _a._id) === null || _b === void 0 ? void 0 : _b.toString();
+            return issueSrId === srId;
+        });
+    }
+    async getOptimized(companyId) {
+        const [issues, salesReps, products, payments, returns, claims] = await Promise.all([
+            this.srIssueModel
+                .find()
+                .populate("items.productId")
+                .populate("srId")
+                .lean()
+                .sort({ issueDate: -1, createdAt: -1 })
+                .exec(),
+            this.salesRepModel
+                .find(companyId ? { companyId } : {})
+                .lean()
+                .exec(),
+            this.productModel
+                .find(companyId ? { companyId } : {})
+                .lean()
+                .exec(),
+            this.srPaymentModel.find().lean().exec(),
+            this.productReturnModel
+                .find()
+                .populate("items.productId")
+                .lean()
+                .exec(),
+            this.companyClaimModel.find().lean().exec(),
+        ]);
+        const productMap = new Map(products.map((p) => [String(p._id), p]));
+        const issuePaymentMap = new Map();
+        payments.forEach((p) => {
+            var _a;
+            const issueId = String(p.issueId);
+            if (!issuePaymentMap.has(issueId)) {
+                issuePaymentMap.set(issueId, []);
+            }
+            (_a = issuePaymentMap.get(issueId)) === null || _a === void 0 ? void 0 : _a.push(p);
+        });
+        const issueReturnMap = new Map();
+        returns.forEach((r) => {
+            var _a;
+            const issueId = String(r.issueId);
+            if (!issueReturnMap.has(issueId)) {
+                issueReturnMap.set(issueId, []);
+            }
+            (_a = issueReturnMap.get(issueId)) === null || _a === void 0 ? void 0 : _a.push(r);
+        });
+        const dueAmounts = {};
+        const enrichedIssues = [];
+        for (const issue of issues) {
+            const issueId = String(issue._id);
+            let adjustedTotalAmount = issue.totalAmount || 0;
+            let totalReceivedAmount = 0;
+            const paymentsForIssue = issuePaymentMap.get(issueId) || [];
+            totalReceivedAmount = paymentsForIssue.reduce((sum, payment) => sum + (payment.receivedAmount || 0), 0);
+            const returnsForIssue = issueReturnMap.get(issueId) || [];
+            for (const returnDoc of returnsForIssue) {
+                for (const returnItem of returnDoc.items) {
+                    const product = productMap.get(String(returnItem.productId));
+                    if (product) {
+                        const returnValue = returnItem.quantity * (product.tradePrice || 0);
+                        adjustedTotalAmount -= returnValue;
+                    }
+                }
+            }
+            adjustedTotalAmount = Math.max(0, adjustedTotalAmount);
+            const due = Math.max(0, adjustedTotalAmount - totalReceivedAmount);
+            dueAmounts[issueId] = {
+                totalAmount: adjustedTotalAmount,
+                receivedAmount: totalReceivedAmount,
+                due,
+            };
+            const enrichedIssue = Object.assign(Object.assign({}, issue), { calculatedTotalAmount: adjustedTotalAmount, calculatedReceivedAmount: totalReceivedAmount, calculatedDue: due });
+            enrichedIssues.push(enrichedIssue);
+        }
+        enrichedIssues.sort((a, b) => {
+            const dateA = new Date(a.issueDate || a.createdAt).getTime();
+            const dateB = new Date(b.issueDate || b.createdAt).getTime();
+            return dateB - dateA;
+        });
+        console.log("[SRIssuesService] getOptimized - Final enrichedIssues before return:", enrichedIssues);
+        return {
+            issues: enrichedIssues,
+            salesReps,
+            products,
+            payments,
+            returns,
+            claims,
+            dueAmounts,
+        };
     }
 };
 exports.SRIssuesService = SRIssuesService;
@@ -120,7 +241,13 @@ exports.SRIssuesService = SRIssuesService = __decorate([
     __param(0, (0, mongoose_1.InjectModel)(sr_issue_schema_1.SRIssue.name)),
     __param(1, (0, mongoose_1.InjectModel)(product_schema_1.Product.name)),
     __param(2, (0, mongoose_1.InjectModel)(salesrep_schema_1.SalesRep.name)),
+    __param(3, (0, mongoose_1.InjectModel)(sr_payment_schema_1.SRPayment.name)),
+    __param(4, (0, mongoose_1.InjectModel)(product_return_schema_1.ProductReturn.name)),
+    __param(5, (0, mongoose_1.InjectModel)(company_claim_schema_1.CompanyClaim.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model,
+        mongoose_2.Model,
+        mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model])
 ], SRIssuesService);

@@ -46,8 +46,8 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], CompaniesController.prototype, "findAll", null);
 __decorate([
-    (0, common_1.Get)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Get)(":id"),
+    __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
@@ -60,22 +60,22 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], CompaniesController.prototype, "create", null);
 __decorate([
-    (0, common_1.Patch)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Patch)(":id"),
+    __param(0, (0, common_1.Param)("id")),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, update_company_dto_1.UpdateCompanyDto]),
     __metadata("design:returntype", void 0)
 ], CompaniesController.prototype, "update", null);
 __decorate([
-    (0, common_1.Delete)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Delete)(":id"),
+    __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], CompaniesController.prototype, "remove", null);
 exports.CompaniesController = CompaniesController = __decorate([
-    (0, common_1.Controller)('companies'),
+    (0, common_1.Controller)("companies"),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     __metadata("design:paramtypes", [companies_service_1.CompaniesService])
 ], CompaniesController);

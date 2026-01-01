@@ -14,9 +14,9 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CompanyClaimsController = void 0;
 const common_1 = require("@nestjs/common");
+const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const company_claims_service_1 = require("./company-claims.service");
 const create_company_claim_dto_1 = require("./dto/create-company-claim.dto");
-const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 let CompanyClaimsController = class CompanyClaimsController {
     constructor(companyClaimsService) {
         this.companyClaimsService = companyClaimsService;
@@ -33,6 +33,9 @@ let CompanyClaimsController = class CompanyClaimsController {
     findOne(id) {
         return this.companyClaimsService.findOne(id);
     }
+    update(id, updateData) {
+        return this.companyClaimsService.update(id, updateData);
+    }
     updateStatus(id, body) {
         return this.companyClaimsService.updateStatus(id, body.status, body.paidDate);
     }
@@ -47,28 +50,36 @@ __decorate([
 ], CompanyClaimsController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
-    __param(0, (0, common_1.Query)('companyId')),
+    __param(0, (0, common_1.Query)("companyId")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], CompanyClaimsController.prototype, "findAll", null);
 __decorate([
-    (0, common_1.Get)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Get)(":id"),
+    __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], CompanyClaimsController.prototype, "findOne", null);
 __decorate([
-    (0, common_1.Patch)(':id/status'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Patch)(":id"),
+    __param(0, (0, common_1.Param)("id")),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], CompanyClaimsController.prototype, "update", null);
+__decorate([
+    (0, common_1.Patch)(":id/status"),
+    __param(0, (0, common_1.Param)("id")),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], CompanyClaimsController.prototype, "updateStatus", null);
 exports.CompanyClaimsController = CompanyClaimsController = __decorate([
-    (0, common_1.Controller)('company-claims'),
+    (0, common_1.Controller)("company-claims"),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     __metadata("design:paramtypes", [company_claims_service_1.CompanyClaimsService])
 ], CompanyClaimsController);

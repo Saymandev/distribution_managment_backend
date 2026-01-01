@@ -1,35 +1,62 @@
-import { NestFactory } from '@nestjs/core';
-import { getModelToken } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { AppModule } from '../app.module';
-import { CompanyClaim, CompanyClaimDocument } from './schemas/company-claim.schema';
-import { Company, CompanyDocument } from './schemas/company.schema';
-import { Expense, ExpenseDocument } from './schemas/expense.schema';
-import { Notification, NotificationDocument } from './schemas/notification.schema';
-import { ProductReturn, ProductReturnDocument } from './schemas/product-return.schema';
-import { Product, ProductDocument } from './schemas/product.schema';
-import { SalesRep, SalesRepDocument } from './schemas/salesrep.schema';
-import { SRIssue, SRIssueDocument } from './schemas/sr-issue.schema';
-import { SRPayment, SRPaymentDocument } from './schemas/sr-payment.schema';
-import { User, UserDocument } from './schemas/user.schema';
+import { NestFactory } from "@nestjs/core";
+import { getModelToken } from "@nestjs/mongoose";
+import { Model } from "mongoose";
+import { AppModule } from "../app.module";
+import {
+  CompanyClaim,
+  CompanyClaimDocument,
+} from "./schemas/company-claim.schema";
+import { Company, CompanyDocument } from "./schemas/company.schema";
+import { Expense, ExpenseDocument } from "./schemas/expense.schema";
+import {
+  Notification,
+  NotificationDocument,
+} from "./schemas/notification.schema";
+import {
+  ProductReturn,
+  ProductReturnDocument,
+} from "./schemas/product-return.schema";
+import { Product, ProductDocument } from "./schemas/product.schema";
+import { SalesRep, SalesRepDocument } from "./schemas/salesrep.schema";
+import { SRIssue, SRIssueDocument } from "./schemas/sr-issue.schema";
+import { SRPayment, SRPaymentDocument } from "./schemas/sr-payment.schema";
+import { User, UserDocument } from "./schemas/user.schema";
 
 async function clearAllData() {
   const app = await NestFactory.createApplicationContext(AppModule);
 
   try {
-    console.log('🗑️  Starting data cleanup...\n');
+    console.log("🗑️  Starting data cleanup...\n");
 
     // Get all models
     const userModel = app.get<Model<UserDocument>>(getModelToken(User.name));
-    const companyModel = app.get<Model<CompanyDocument>>(getModelToken(Company.name));
-    const productModel = app.get<Model<ProductDocument>>(getModelToken(Product.name));
-    const salesRepModel = app.get<Model<SalesRepDocument>>(getModelToken(SalesRep.name));
-    const srIssueModel = app.get<Model<SRIssueDocument>>(getModelToken(SRIssue.name));
-    const srPaymentModel = app.get<Model<SRPaymentDocument>>(getModelToken(SRPayment.name));
-    const companyClaimModel = app.get<Model<CompanyClaimDocument>>(getModelToken(CompanyClaim.name));
-    const productReturnModel = app.get<Model<ProductReturnDocument>>(getModelToken(ProductReturn.name));
-    const expenseModel = app.get<Model<ExpenseDocument>>(getModelToken(Expense.name));
-    const notificationModel = app.get<Model<NotificationDocument>>(getModelToken(Notification.name));
+    const companyModel = app.get<Model<CompanyDocument>>(
+      getModelToken(Company.name),
+    );
+    const productModel = app.get<Model<ProductDocument>>(
+      getModelToken(Product.name),
+    );
+    const salesRepModel = app.get<Model<SalesRepDocument>>(
+      getModelToken(SalesRep.name),
+    );
+    const srIssueModel = app.get<Model<SRIssueDocument>>(
+      getModelToken(SRIssue.name),
+    );
+    const srPaymentModel = app.get<Model<SRPaymentDocument>>(
+      getModelToken(SRPayment.name),
+    );
+    const companyClaimModel = app.get<Model<CompanyClaimDocument>>(
+      getModelToken(CompanyClaim.name),
+    );
+    const productReturnModel = app.get<Model<ProductReturnDocument>>(
+      getModelToken(ProductReturn.name),
+    );
+    const expenseModel = app.get<Model<ExpenseDocument>>(
+      getModelToken(Expense.name),
+    );
+    const notificationModel = app.get<Model<NotificationDocument>>(
+      getModelToken(Notification.name),
+    );
 
     // Clear all collections except users
     const companiesCount = await companyModel.countDocuments();
@@ -71,10 +98,10 @@ async function clearAllData() {
     const userCount = await userModel.countDocuments();
     console.log(`\n⏭️  Preserved Users: ${userCount} documents`);
 
-    console.log('\n✨ All data cleared successfully!');
-    console.log('✅ Only user data has been preserved.');
+    console.log("\n✨ All data cleared successfully!");
+    console.log("✅ Only user data has been preserved.");
   } catch (error) {
-    console.error('❌ Error clearing data:', error);
+    console.error("❌ Error clearing data:", error);
   } finally {
     await app.close();
   }

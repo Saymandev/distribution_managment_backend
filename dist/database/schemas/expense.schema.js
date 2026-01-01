@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ExpenseSchema = exports.Expense = exports.ExpenseCategory = void 0;
 const mongoose_1 = require("@nestjs/mongoose");
+const mongoose_2 = require("mongoose");
 var ExpenseCategory;
 (function (ExpenseCategory) {
     ExpenseCategory["UTILITY"] = "utility";
@@ -25,6 +26,10 @@ __decorate([
     (0, mongoose_1.Prop)({ required: true, enum: ExpenseCategory }),
     __metadata("design:type", String)
 ], Expense.prototype, "category", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "Company", required: true }),
+    __metadata("design:type", String)
+], Expense.prototype, "companyId", void 0);
 __decorate([
     (0, mongoose_1.Prop)(),
     __metadata("design:type", String)

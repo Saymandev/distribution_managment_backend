@@ -30,6 +30,9 @@ let SRIssuesController = class SRIssuesController {
         }
         return this.srIssuesService.findAll();
     }
+    getOptimized(companyId) {
+        return this.srIssuesService.getOptimized(companyId);
+    }
     findOne(id) {
         return this.srIssuesService.findOne(id);
     }
@@ -44,20 +47,27 @@ __decorate([
 ], SRIssuesController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
-    __param(0, (0, common_1.Query)('srId')),
+    __param(0, (0, common_1.Query)("srId")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], SRIssuesController.prototype, "findAll", null);
 __decorate([
-    (0, common_1.Get)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Get)("optimized"),
+    __param(0, (0, common_1.Query)("companyId")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], SRIssuesController.prototype, "getOptimized", null);
+__decorate([
+    (0, common_1.Get)(":id"),
+    __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], SRIssuesController.prototype, "findOne", null);
 exports.SRIssuesController = SRIssuesController = __decorate([
-    (0, common_1.Controller)('sr-issues'),
+    (0, common_1.Controller)("sr-issues"),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     __metadata("design:paramtypes", [sr_issues_service_1.SRIssuesService])
 ], SRIssuesController);

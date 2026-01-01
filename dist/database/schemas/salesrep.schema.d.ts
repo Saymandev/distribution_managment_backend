@@ -1,4 +1,4 @@
-import { Document, Types } from 'mongoose';
+import { Document, Types } from "mongoose";
 export type SalesRepDocument = SalesRep & Document;
 export declare class SalesRep {
     name: string;

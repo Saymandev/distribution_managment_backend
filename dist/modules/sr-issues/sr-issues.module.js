@@ -9,11 +9,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SRIssuesModule = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
-const sr_issues_service_1 = require("./sr-issues.service");
-const sr_issues_controller_1 = require("./sr-issues.controller");
-const sr_issue_schema_1 = require("../../database/schemas/sr-issue.schema");
+const company_claim_schema_1 = require("../../database/schemas/company-claim.schema");
+const product_return_schema_1 = require("../../database/schemas/product-return.schema");
 const product_schema_1 = require("../../database/schemas/product.schema");
 const salesrep_schema_1 = require("../../database/schemas/salesrep.schema");
+const sr_issue_schema_1 = require("../../database/schemas/sr-issue.schema");
+const sr_payment_schema_1 = require("../../database/schemas/sr-payment.schema");
+const sr_issues_controller_1 = require("./sr-issues.controller");
+const sr_issues_service_1 = require("./sr-issues.service");
 let SRIssuesModule = class SRIssuesModule {
 };
 exports.SRIssuesModule = SRIssuesModule;
@@ -24,6 +27,9 @@ exports.SRIssuesModule = SRIssuesModule = __decorate([
                 { name: sr_issue_schema_1.SRIssue.name, schema: sr_issue_schema_1.SRIssueSchema },
                 { name: product_schema_1.Product.name, schema: product_schema_1.ProductSchema },
                 { name: salesrep_schema_1.SalesRep.name, schema: salesrep_schema_1.SalesRepSchema },
+                { name: sr_payment_schema_1.SRPayment.name, schema: sr_payment_schema_1.SRPaymentSchema },
+                { name: product_return_schema_1.ProductReturn.name, schema: product_return_schema_1.ProductReturnSchema },
+                { name: company_claim_schema_1.CompanyClaim.name, schema: company_claim_schema_1.CompanyClaimSchema },
             ]),
         ],
         controllers: [sr_issues_controller_1.SRIssuesController],

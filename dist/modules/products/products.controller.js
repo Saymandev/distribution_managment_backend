@@ -34,6 +34,9 @@ let ProductsController = class ProductsController {
     getUniqueCategories() {
         return this.productsService.getUniqueCategories();
     }
+    search(companyId, query, limit = "10") {
+        return this.productsService.search(companyId, query, parseInt(limit));
+    }
     findOne(id) {
         return this.productsService.findOne(id);
     }
@@ -62,49 +65,58 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], ProductsController.prototype, "findAll", null);
 __decorate([
-    (0, common_1.Get)('meta/units'),
+    (0, common_1.Get)("meta/units"),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], ProductsController.prototype, "getUniqueUnits", null);
 __decorate([
-    (0, common_1.Get)('meta/categories'),
+    (0, common_1.Get)("meta/categories"),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], ProductsController.prototype, "getUniqueCategories", null);
 __decorate([
-    (0, common_1.Get)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Get)("search"),
+    __param(0, (0, common_1.Query)("companyId")),
+    __param(1, (0, common_1.Query)("query")),
+    __param(2, (0, common_1.Query)("limit")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", void 0)
+], ProductsController.prototype, "search", null);
+__decorate([
+    (0, common_1.Get)(":id"),
+    __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], ProductsController.prototype, "findOne", null);
 __decorate([
-    (0, common_1.Patch)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Patch)(":id"),
+    __param(0, (0, common_1.Param)("id")),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, update_product_dto_1.UpdateProductDto]),
     __metadata("design:returntype", void 0)
 ], ProductsController.prototype, "update", null);
 __decorate([
-    (0, common_1.Put)(':id/stock'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Put)(":id/stock"),
+    __param(0, (0, common_1.Param)("id")),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], ProductsController.prototype, "updateStock", null);
 __decorate([
-    (0, common_1.Delete)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Delete)(":id"),
+    __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], ProductsController.prototype, "remove", null);
 exports.ProductsController = ProductsController = __decorate([
-    (0, common_1.Controller)('products'),
+    (0, common_1.Controller)("products"),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     __metadata("design:paramtypes", [products_service_1.ProductsService])
 ], ProductsController);

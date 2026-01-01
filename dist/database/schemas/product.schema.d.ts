@@ -1,4 +1,4 @@
-import { Document, Types } from 'mongoose';
+import { Document, Types } from "mongoose";
 export type ProductDocument = Product & Document;
 export declare class Product {
     name: string;
@@ -7,6 +7,7 @@ export declare class Product {
     category?: string;
     unit: string;
     dealerPrice: number;
+    commissionPercent: number;
     tradePrice: number;
     stock: number;
     reorderLevel: number;

@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 export type ProductDocument = Product & Document;
 
@@ -11,7 +11,7 @@ export class Product {
   @Prop({ required: true, unique: true })
   sku: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'Company', required: true })
+  @Prop({ type: Types.ObjectId, ref: "Company", required: true })
   companyId: string; // Which company supplies
 
   @Prop()
@@ -21,10 +21,13 @@ export class Product {
   unit: string; // pcs, kg, box
 
   @Prop({ required: true, type: Number })
-  dealerPrice: number; // DP - 100 tk (what company charges you)
+  dealerPrice: number; // DP - what company charges you
 
   @Prop({ required: true, type: Number })
-  tradePrice: number; // TP - 95 tk (expected selling price)
+  commissionPercent: number; // e.g. 6 for 6%
+
+  @Prop({ required: true, type: Number })
+  tradePrice: number; // TP - computed automatically: DP + DP * (commissionPercent / 100)
 
   @Prop({ type: Number, default: 0 })
   stock: number;
@@ -37,6 +40,4 @@ export class Product {
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);
-ProductSchema.index({ sku: 1 }, { unique: true });
 ProductSchema.index({ companyId: 1 });
-

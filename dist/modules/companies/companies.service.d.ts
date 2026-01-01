@@ -1,7 +1,7 @@
-import { Model } from 'mongoose';
-import { Company, CompanyDocument } from '../../database/schemas/company.schema';
-import { CreateCompanyDto } from './dto/create-company.dto';
-import { UpdateCompanyDto } from './dto/update-company.dto';
+import { Model } from "mongoose";
+import { Company, CompanyDocument } from "../../database/schemas/company.schema";
+import { CreateCompanyDto } from "./dto/create-company.dto";
+import { UpdateCompanyDto } from "./dto/update-company.dto";
 export declare class CompaniesService {
     private readonly companyModel;
     constructor(companyModel: Model<CompanyDocument>);

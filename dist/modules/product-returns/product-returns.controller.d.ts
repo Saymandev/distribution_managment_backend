@@ -1,6 +1,6 @@
-import { ProductReturnsService } from './product-returns.service';
-import { CreateProductReturnDto } from './dto/create-product-return.dto';
-import { ReturnStatus } from '../../database/schemas/product-return.schema';
+import { ProductReturnsService } from "./product-returns.service";
+import { CreateProductReturnDto } from "./dto/create-product-return.dto";
+import { ReturnStatus } from "../../database/schemas/product-return.schema";
 export declare class ProductReturnsController {
     private readonly productReturnsService;
     constructor(productReturnsService: ProductReturnsService);

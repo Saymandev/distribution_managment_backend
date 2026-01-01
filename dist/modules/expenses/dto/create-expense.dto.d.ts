@@ -1,4 +1,4 @@
-import { ExpenseCategory } from '../../../database/schemas/expense.schema';
+import { ExpenseCategory } from "../../../database/schemas/expense.schema";
 export declare class CreateExpenseDto {
     category: ExpenseCategory;
     subCategory?: string;
@@ -6,4 +6,5 @@ export declare class CreateExpenseDto {
     date: string;
     description?: string;
     receiptNumber?: string;
+    companyId: string;
 }

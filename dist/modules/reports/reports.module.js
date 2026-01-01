@@ -9,15 +9,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReportsModule = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
-const reports_service_1 = require("./reports.service");
-const reports_controller_1 = require("./reports.controller");
-const sr_payment_schema_1 = require("../../database/schemas/sr-payment.schema");
 const company_claim_schema_1 = require("../../database/schemas/company-claim.schema");
-const expense_schema_1 = require("../../database/schemas/expense.schema");
-const sr_issue_schema_1 = require("../../database/schemas/sr-issue.schema");
-const product_schema_1 = require("../../database/schemas/product.schema");
 const company_schema_1 = require("../../database/schemas/company.schema");
+const expense_schema_1 = require("../../database/schemas/expense.schema");
+const product_return_schema_1 = require("../../database/schemas/product-return.schema");
+const product_schema_1 = require("../../database/schemas/product.schema");
 const salesrep_schema_1 = require("../../database/schemas/salesrep.schema");
+const sr_issue_schema_1 = require("../../database/schemas/sr-issue.schema");
+const sr_payment_schema_1 = require("../../database/schemas/sr-payment.schema");
+const reports_controller_1 = require("./reports.controller");
+const reports_service_1 = require("./reports.service");
 let ReportsModule = class ReportsModule {
 };
 exports.ReportsModule = ReportsModule;
@@ -26,12 +27,15 @@ exports.ReportsModule = ReportsModule = __decorate([
         imports: [
             mongoose_1.MongooseModule.forFeature([
                 { name: sr_payment_schema_1.SRPayment.name, schema: sr_payment_schema_1.SRPaymentSchema },
+                { name: sr_payment_schema_1.SupplierPayment.name, schema: sr_payment_schema_1.SupplierPaymentSchema },
+                { name: sr_payment_schema_1.SupplierReceipt.name, schema: sr_payment_schema_1.SupplierReceiptSchema },
                 { name: company_claim_schema_1.CompanyClaim.name, schema: company_claim_schema_1.CompanyClaimSchema },
                 { name: expense_schema_1.Expense.name, schema: expense_schema_1.ExpenseSchema },
                 { name: sr_issue_schema_1.SRIssue.name, schema: sr_issue_schema_1.SRIssueSchema },
                 { name: product_schema_1.Product.name, schema: product_schema_1.ProductSchema },
                 { name: company_schema_1.Company.name, schema: company_schema_1.CompanySchema },
                 { name: salesrep_schema_1.SalesRep.name, schema: salesrep_schema_1.SalesRepSchema },
+                { name: product_return_schema_1.ProductReturn.name, schema: product_return_schema_1.ProductReturnSchema },
             ]),
         ],
         controllers: [reports_controller_1.ReportsController],

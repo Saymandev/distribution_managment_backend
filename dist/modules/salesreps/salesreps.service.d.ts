@@ -1,7 +1,7 @@
-import { Model } from 'mongoose';
-import { SalesRep, SalesRepDocument } from '../../database/schemas/salesrep.schema';
-import { CreateSalesRepDto } from './dto/create-salesrep.dto';
-import { UpdateSalesRepDto } from './dto/update-salesrep.dto';
+import { Model } from "mongoose";
+import { SalesRep, SalesRepDocument } from "../../database/schemas/salesrep.schema";
+import { CreateSalesRepDto } from "./dto/create-salesrep.dto";
+import { UpdateSalesRepDto } from "./dto/update-salesrep.dto";
 export declare class SalesRepsService {
     private readonly salesRepModel;
     constructor(salesRepModel: Model<SalesRepDocument>);

@@ -10,8 +10,8 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateSRPaymentDto = exports.SRPaymentItemDto = void 0;
-const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
+const class_validator_1 = require("class-validator");
 class SRPaymentItemDto {
 }
 exports.SRPaymentItemDto = SRPaymentItemDto;
@@ -60,10 +60,32 @@ __decorate([
     __metadata("design:type", Array)
 ], CreateSRPaymentDto.prototype, "items", void 0);
 __decorate([
-    (0, class_validator_1.IsEnum)(['cash', 'bank', 'bkash', 'nagad', 'rocket']),
+    (0, class_validator_1.IsEnum)(["cash", "bank", "bkash", "nagad", "rocket"]),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateSRPaymentDto.prototype, "paymentMethod", void 0);
+__decorate([
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Number)
+], CreateSRPaymentDto.prototype, "receivedAmount", void 0);
+__decorate([
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Number)
+], CreateSRPaymentDto.prototype, "companyClaim", void 0);
+__decorate([
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Number)
+], CreateSRPaymentDto.prototype, "customerDue", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Object)
+], CreateSRPaymentDto.prototype, "customerInfo", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),

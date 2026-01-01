@@ -16,7 +16,7 @@ const user_schema_1 = require("./schemas/user.schema");
 async function clearAllData() {
     const app = await core_1.NestFactory.createApplicationContext(app_module_1.AppModule);
     try {
-        console.log('🗑️  Starting data cleanup...\n');
+        console.log("🗑️  Starting data cleanup...\n");
         const userModel = app.get((0, mongoose_1.getModelToken)(user_schema_1.User.name));
         const companyModel = app.get((0, mongoose_1.getModelToken)(company_schema_1.Company.name));
         const productModel = app.get((0, mongoose_1.getModelToken)(product_schema_1.Product.name));
@@ -56,11 +56,11 @@ async function clearAllData() {
         console.log(`✅ Cleared Notifications: ${notificationsCount} documents`);
         const userCount = await userModel.countDocuments();
         console.log(`\n⏭️  Preserved Users: ${userCount} documents`);
-        console.log('\n✨ All data cleared successfully!');
-        console.log('✅ Only user data has been preserved.');
+        console.log("\n✨ All data cleared successfully!");
+        console.log("✅ Only user data has been preserved.");
     }
     catch (error) {
-        console.error('❌ Error clearing data:', error);
+        console.error("❌ Error clearing data:", error);
     }
     finally {
         await app.close();

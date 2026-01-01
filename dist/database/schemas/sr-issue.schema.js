@@ -16,7 +16,7 @@ class SRIssueItem {
 }
 exports.SRIssueItem = SRIssueItem;
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Product', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "Product", required: true }),
     __metadata("design:type", String)
 ], SRIssueItem.prototype, "productId", void 0);
 __decorate([
@@ -39,7 +39,7 @@ __decorate([
     __metadata("design:type", String)
 ], SRIssue.prototype, "issueNumber", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'SalesRep', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "SalesRep", required: true }),
     __metadata("design:type", String)
 ], SRIssue.prototype, "srId", void 0);
 __decorate([
@@ -62,6 +62,5 @@ exports.SRIssue = SRIssue = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })
 ], SRIssue);
 exports.SRIssueSchema = mongoose_1.SchemaFactory.createForClass(SRIssue);
-exports.SRIssueSchema.index({ issueNumber: 1 }, { unique: true });
 exports.SRIssueSchema.index({ srId: 1, issueDate: -1 });
 //# sourceMappingURL=sr-issue.schema.js.map

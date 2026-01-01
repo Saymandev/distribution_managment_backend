@@ -24,7 +24,7 @@ __decorate([
     __metadata("design:type", String)
 ], Product.prototype, "sku", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Company', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "Company", required: true }),
     __metadata("design:type", String)
 ], Product.prototype, "companyId", void 0);
 __decorate([
@@ -39,6 +39,10 @@ __decorate([
     (0, mongoose_1.Prop)({ required: true, type: Number }),
     __metadata("design:type", Number)
 ], Product.prototype, "dealerPrice", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: true, type: Number }),
+    __metadata("design:type", Number)
+], Product.prototype, "commissionPercent", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ required: true, type: Number }),
     __metadata("design:type", Number)
@@ -59,6 +63,5 @@ exports.Product = Product = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })
 ], Product);
 exports.ProductSchema = mongoose_1.SchemaFactory.createForClass(Product);
-exports.ProductSchema.index({ sku: 1 }, { unique: true });
 exports.ProductSchema.index({ companyId: 1 });
 //# sourceMappingURL=product.schema.js.map

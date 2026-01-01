@@ -1,22 +1,22 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document } from "mongoose";
 
 export type NotificationDocument = Notification & Document;
 
 export enum NotificationType {
-  INFO = 'info',
-  WARNING = 'warning',
-  ERROR = 'error',
-  SUCCESS = 'success',
+  INFO = "info",
+  WARNING = "warning",
+  ERROR = "error",
+  SUCCESS = "success",
 }
 
 export enum NotificationCategory {
-  STOCK = 'stock',
-  PAYMENT = 'payment',
-  CLAIM = 'claim',
-  RETURN = 'return',
-  EXPENSE = 'expense',
-  SYSTEM = 'system',
+  STOCK = "stock",
+  PAYMENT = "payment",
+  CLAIM = "claim",
+  RETURN = "return",
+  EXPENSE = "expense",
+  SYSTEM = "system",
 }
 
 @Schema({ timestamps: true })
@@ -49,4 +49,3 @@ export class Notification {
 export const NotificationSchema = SchemaFactory.createForClass(Notification);
 NotificationSchema.index({ read: 1, createdAt: -1 });
 NotificationSchema.index({ category: 1, createdAt: -1 });
-

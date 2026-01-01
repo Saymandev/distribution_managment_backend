@@ -1,5 +1,5 @@
-import { NotificationsGateway } from './notifications.gateway';
-import { NotificationsService } from './notifications.service';
+import { NotificationsGateway } from "./notifications.gateway";
+import { NotificationsService } from "./notifications.service";
 export declare class NotificationsScheduler {
     private readonly notificationsService;
     private readonly notificationsGateway;

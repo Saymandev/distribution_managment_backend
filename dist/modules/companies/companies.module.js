@@ -17,7 +17,9 @@ let CompaniesModule = class CompaniesModule {
 exports.CompaniesModule = CompaniesModule;
 exports.CompaniesModule = CompaniesModule = __decorate([
     (0, common_1.Module)({
-        imports: [mongoose_1.MongooseModule.forFeature([{ name: company_schema_1.Company.name, schema: company_schema_1.CompanySchema }])],
+        imports: [
+            mongoose_1.MongooseModule.forFeature([{ name: company_schema_1.Company.name, schema: company_schema_1.CompanySchema }]),
+        ],
         providers: [companies_service_1.CompaniesService],
         controllers: [companies_controller_1.CompaniesController],
         exports: [companies_service_1.CompaniesService],

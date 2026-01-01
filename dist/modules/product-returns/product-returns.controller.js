@@ -49,22 +49,22 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], ProductReturnsController.prototype, "findAll", null);
 __decorate([
-    (0, common_1.Get)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Get)(":id"),
+    __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], ProductReturnsController.prototype, "findOne", null);
 __decorate([
-    (0, common_1.Patch)(':id/status'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Patch)(":id/status"),
+    __param(0, (0, common_1.Param)("id")),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], ProductReturnsController.prototype, "updateStatus", null);
 exports.ProductReturnsController = ProductReturnsController = __decorate([
-    (0, common_1.Controller)('product-returns'),
+    (0, common_1.Controller)("product-returns"),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     __metadata("design:paramtypes", [product_returns_service_1.ProductReturnsService])
 ], ProductReturnsController);

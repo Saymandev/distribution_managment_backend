@@ -1,6 +1,16 @@
-import { Type } from 'class-transformer';
-import { IsArray, IsEnum, IsMongoId, IsNotEmpty, IsNumber, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
-import { ReturnType } from '../../../database/schemas/product-return.schema';
+import { Type } from "class-transformer";
+import {
+  IsArray,
+  IsEnum,
+  IsMongoId,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateNested,
+} from "class-validator";
+import { ReturnType } from "../../../database/schemas/product-return.schema";
 
 export class ReturnItemDto {
   @IsMongoId()
@@ -50,4 +60,3 @@ export class CreateProductReturnDto {
   @IsOptional()
   notes?: string;
 }
-

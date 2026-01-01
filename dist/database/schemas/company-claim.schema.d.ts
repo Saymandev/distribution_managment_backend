@@ -1,4 +1,4 @@
-import { Document, Types } from 'mongoose';
+import { Document, Types } from "mongoose";
 export type CompanyClaimDocument = CompanyClaim & Document;
 export declare enum ClaimStatus {
     PENDING = "pending",
@@ -9,8 +9,8 @@ export declare class ClaimItem {
     productId: string;
     quantity: number;
     dealerPrice: number;
-    commissionRate: number;
-    commissionAmount: number;
+    tradePrice: number;
+    discount: number;
     srPayment: number;
     netFromCompany: number;
 }
@@ -21,8 +21,7 @@ export declare class CompanyClaim {
     issueId?: string;
     items: ClaimItem[];
     totalDealerPrice: number;
-    totalCommission: number;
-    totalClaim: number;
+    totalCompanyClaim: number;
     totalSRPayment: number;
     netFromCompany: number;
     status: ClaimStatus;

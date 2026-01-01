@@ -25,8 +25,8 @@ let ExpensesController = class ExpensesController {
     create(createExpenseDto) {
         return this.expensesService.create(createExpenseDto);
     }
-    findAll() {
-        return this.expensesService.findAll();
+    findAll(companyId, startDate, endDate) {
+        return this.expensesService.findAll(companyId, startDate, endDate);
     }
     findOne(id) {
         return this.expensesService.findOne(id);
@@ -48,34 +48,37 @@ __decorate([
 ], ExpensesController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
+    __param(0, (0, common_1.Query)("companyId")),
+    __param(1, (0, common_1.Query)("startDate")),
+    __param(2, (0, common_1.Query)("endDate")),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", void 0)
 ], ExpensesController.prototype, "findAll", null);
 __decorate([
-    (0, common_1.Get)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Get)(":id"),
+    __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], ExpensesController.prototype, "findOne", null);
 __decorate([
-    (0, common_1.Patch)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Patch)(":id"),
+    __param(0, (0, common_1.Param)("id")),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, update_expense_dto_1.UpdateExpenseDto]),
     __metadata("design:returntype", void 0)
 ], ExpensesController.prototype, "update", null);
 __decorate([
-    (0, common_1.Delete)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Delete)(":id"),
+    __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], ExpensesController.prototype, "remove", null);
 exports.ExpensesController = ExpensesController = __decorate([
-    (0, common_1.Controller)('expenses'),
+    (0, common_1.Controller)("expenses"),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     __metadata("design:paramtypes", [expenses_service_1.ExpensesService])
 ], ExpensesController);

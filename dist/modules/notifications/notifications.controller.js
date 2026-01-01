@@ -21,7 +21,7 @@ let NotificationsController = class NotificationsController {
         this.notificationsService = notificationsService;
     }
     findAll(unreadOnly) {
-        return this.notificationsService.findAll(unreadOnly === 'true');
+        return this.notificationsService.findAll(unreadOnly === "true");
     }
     async getUnreadCount() {
         const count = await this.notificationsService.getUnreadCount();
@@ -37,32 +37,32 @@ let NotificationsController = class NotificationsController {
 exports.NotificationsController = NotificationsController;
 __decorate([
     (0, common_1.Get)(),
-    __param(0, (0, common_1.Query)('unreadOnly')),
+    __param(0, (0, common_1.Query)("unreadOnly")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], NotificationsController.prototype, "findAll", null);
 __decorate([
-    (0, common_1.Get)('count'),
+    (0, common_1.Get)("count"),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], NotificationsController.prototype, "getUnreadCount", null);
 __decorate([
-    (0, common_1.Patch)(':id/read'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Patch)(":id/read"),
+    __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], NotificationsController.prototype, "markAsRead", null);
 __decorate([
-    (0, common_1.Patch)('read-all'),
+    (0, common_1.Patch)("read-all"),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], NotificationsController.prototype, "markAllAsRead", null);
 exports.NotificationsController = NotificationsController = __decorate([
-    (0, common_1.Controller)('notifications'),
+    (0, common_1.Controller)("notifications"),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     __metadata("design:paramtypes", [notifications_service_1.NotificationsService])
 ], NotificationsController);

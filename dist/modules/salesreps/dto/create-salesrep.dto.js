@@ -30,7 +30,7 @@ __decorate([
     __metadata("design:type", String)
 ], CreateSalesRepDto.prototype, "phone", void 0);
 __decorate([
-    (0, class_validator_1.ValidateIf)((o) => o.email !== undefined && o.email !== null && o.email !== ''),
+    (0, class_validator_1.ValidateIf)((o) => o.email !== undefined && o.email !== null && o.email !== ""),
     (0, class_validator_1.IsEmail)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)

@@ -30,14 +30,14 @@ let SalesRepsService = class SalesRepsService {
         const query = companyId ? { companyId } : {};
         return this.salesRepModel
             .find(query)
-            .populate('companyId', 'name code')
+            .populate("companyId", "name code")
             .sort({ name: 1 })
             .exec();
     }
     async findOne(id) {
         const salesRep = await this.salesRepModel.findById(id).exec();
         if (!salesRep) {
-            throw new common_1.NotFoundException('Sales Rep not found');
+            throw new common_1.NotFoundException("Sales Rep not found");
         }
         return salesRep;
     }
@@ -46,14 +46,14 @@ let SalesRepsService = class SalesRepsService {
             .findByIdAndUpdate(id, { $set: dto }, { new: true })
             .exec();
         if (!updated) {
-            throw new common_1.NotFoundException('Sales Rep not found');
+            throw new common_1.NotFoundException("Sales Rep not found");
         }
         return updated;
     }
     async remove(id) {
         const res = await this.salesRepModel.findByIdAndDelete(id).exec();
         if (!res) {
-            throw new common_1.NotFoundException('Sales Rep not found');
+            throw new common_1.NotFoundException("Sales Rep not found");
         }
     }
 };

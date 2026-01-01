@@ -1,4 +1,4 @@
-import { Document, Types } from 'mongoose';
+import { Document, Types } from "mongoose";
 export type ProductReturnDocument = ProductReturn & Document;
 export declare enum ReturnType {
     CUSTOMER_RETURN = "customer_return",
@@ -17,7 +17,6 @@ export declare class ReturnItem {
 export declare class ProductReturn {
     returnNumber: string;
     returnType: ReturnType;
-    customerId?: string;
     srId?: string;
     companyId?: string;
     issueId?: string;

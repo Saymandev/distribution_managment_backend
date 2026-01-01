@@ -1,7 +1,7 @@
-import { JwtService } from '@nestjs/jwt';
-import { Model } from 'mongoose';
-import { User, UserDocument } from '../../database/schemas/user.schema';
-import { LoginDto } from './dto/login.dto';
+import { JwtService } from "@nestjs/jwt";
+import { Model } from "mongoose";
+import { User, UserDocument } from "../../database/schemas/user.schema";
+import { LoginDto } from "./dto/login.dto";
 export declare class AuthService {
     private readonly userModel;
     private readonly jwtService;

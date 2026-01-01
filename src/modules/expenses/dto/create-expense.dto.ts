@@ -1,5 +1,13 @@
-import { IsString, IsNotEmpty, IsNumber, IsOptional, IsEnum, IsDateString, Min } from 'class-validator';
-import { ExpenseCategory } from '../../../database/schemas/expense.schema';
+import {
+  IsString,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsEnum,
+  IsDateString,
+  Min,
+} from "class-validator";
+import { ExpenseCategory } from "../../../database/schemas/expense.schema";
 
 export class CreateExpenseDto {
   @IsEnum(ExpenseCategory)
@@ -25,5 +33,8 @@ export class CreateExpenseDto {
   @IsString()
   @IsOptional()
   receiptNumber?: string;
-}
 
+  @IsString()
+  @IsNotEmpty()
+  companyId: string;
+}

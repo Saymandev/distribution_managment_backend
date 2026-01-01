@@ -1,19 +1,22 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 export type ExpenseDocument = Expense & Document;
 
 export enum ExpenseCategory {
-  UTILITY = 'utility',
-  RENT = 'rent',
-  SALARY = 'salary',
-  OTHER = 'other',
+  UTILITY = "utility",
+  RENT = "rent",
+  SALARY = "salary",
+  OTHER = "other",
 }
 
 @Schema({ timestamps: true })
 export class Expense {
   @Prop({ required: true, enum: ExpenseCategory })
   category: ExpenseCategory;
+
+  @Prop({ type: Types.ObjectId, ref: "Company", required: true })
+  companyId: string; // Which company this expense belongs to
 
   @Prop()
   subCategory?: string; // "Electricity", "Office Rent"
@@ -34,4 +37,3 @@ export class Expense {
 export const ExpenseSchema = SchemaFactory.createForClass(Expense);
 ExpenseSchema.index({ date: -1 });
 ExpenseSchema.index({ category: 1 });
-

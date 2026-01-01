@@ -1,9 +1,12 @@
-import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { ProductsService } from './products.service';
-import { ProductsController } from './products.controller';
-import { Product, ProductSchema } from '../../database/schemas/product.schema';
-import { ProductReturn, ProductReturnSchema } from '../../database/schemas/product-return.schema';
+import { Module } from "@nestjs/common";
+import { MongooseModule } from "@nestjs/mongoose";
+import { ProductsService } from "./products.service";
+import { ProductsController } from "./products.controller";
+import { Product, ProductSchema } from "../../database/schemas/product.schema";
+import {
+  ProductReturn,
+  ProductReturnSchema,
+} from "../../database/schemas/product-return.schema";
 
 @Module({
   imports: [
@@ -17,4 +20,3 @@ import { ProductReturn, ProductReturnSchema } from '../../database/schemas/produ
   exports: [ProductsService],
 })
 export class ProductsModule {}
-

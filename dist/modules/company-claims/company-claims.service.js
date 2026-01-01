@@ -18,19 +18,25 @@ const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const company_claim_schema_1 = require("../../database/schemas/company-claim.schema");
 const company_schema_1 = require("../../database/schemas/company.schema");
+const sr_payment_schema_1 = require("../../database/schemas/sr-payment.schema");
+const notifications_gateway_1 = require("../notifications/notifications.gateway");
 let CompanyClaimsService = class CompanyClaimsService {
-    constructor(companyClaimModel, companyModel) {
+    constructor(companyClaimModel, companyModel, srPaymentModel, notificationsGateway) {
         this.companyClaimModel = companyClaimModel;
         this.companyModel = companyModel;
+        this.srPaymentModel = srPaymentModel;
+        this.notificationsGateway = notificationsGateway;
     }
     async create(dto) {
-        const existing = await this.companyClaimModel.findOne({ claimNumber: dto.claimNumber }).exec();
+        const existing = await this.companyClaimModel
+            .findOne({ claimNumber: dto.claimNumber })
+            .exec();
         if (existing) {
-            throw new common_1.ConflictException('Claim number already exists');
+            throw new common_1.ConflictException("Claim number already exists");
         }
         const company = await this.companyModel.findById(dto.companyId).exec();
         if (!company) {
-            throw new common_1.NotFoundException('Company not found');
+            throw new common_1.NotFoundException("Company not found");
         }
         let totalDealerPrice = 0;
         let totalCommission = 0;
@@ -60,48 +66,163 @@ let CompanyClaimsService = class CompanyClaimsService {
             status: dto.status || company_claim_schema_1.ClaimStatus.PENDING,
             notes: dto.notes,
         });
-        return claim.save();
+        const savedClaim = await claim.save();
+        try {
+            await this.notificationsGateway.emitClaimsDataRefresh();
+        }
+        catch (error) {
+            console.error("Failed to emit claims data refresh:", error);
+        }
+        return savedClaim;
     }
     async findAll() {
         return this.companyClaimModel
             .find()
-            .populate('companyId', 'name code')
-            .populate('paymentId', 'receiptNumber')
-            .populate('items.productId', 'name sku')
+            .populate("companyId", "name code")
+            .populate("paymentId", "receiptNumber")
+            .populate("items.productId", "name sku")
+            .sort({ createdAt: -1 })
+            .exec();
+    }
+    async findByCompany(companyId) {
+        return this.companyClaimModel
+            .find({ companyId: companyId })
+            .populate("companyId", "name code")
+            .populate("paymentId", "receiptNumber")
+            .populate("items.productId", "name sku")
             .sort({ createdAt: -1 })
             .exec();
     }
     async findOne(id) {
         const claim = await this.companyClaimModel
             .findById(id)
-            .populate('companyId')
-            .populate('paymentId')
-            .populate('items.productId')
+            .populate("companyId")
+            .populate("paymentId")
+            .populate("items.productId")
             .exec();
         if (!claim) {
-            throw new common_1.NotFoundException('Company Claim not found');
+            throw new common_1.NotFoundException("Company Claim not found");
         }
         return claim;
     }
-    async updateStatus(id, status, paidDate) {
-        const updateData = { status };
-        if (status === company_claim_schema_1.ClaimStatus.PAID && paidDate) {
-            updateData.paidDate = paidDate;
-        }
+    async update(id, updateData) {
         const updated = await this.companyClaimModel
             .findByIdAndUpdate(id, { $set: updateData }, { new: true })
             .exec();
         if (!updated) {
-            throw new common_1.NotFoundException('Company Claim not found');
+            throw new common_1.NotFoundException("Company Claim not found");
+        }
+        try {
+            await this.notificationsGateway.emitClaimsDataRefresh();
+        }
+        catch (error) {
+            console.error("Failed to emit claims data refresh:", error);
         }
         return updated;
     }
-    async findByCompany(companyId) {
-        return this.companyClaimModel
-            .find({ companyId })
-            .populate('items.productId', 'name sku')
-            .sort({ createdAt: -1 })
-            .exec();
+    async updateStatus(id, status, paidDate) {
+        let updated;
+        try {
+            const updateData = { status };
+            if (status === company_claim_schema_1.ClaimStatus.PAID && paidDate) {
+                updateData.paidDate = paidDate;
+            }
+            updated = await this.companyClaimModel
+                .findByIdAndUpdate(id, { $set: updateData }, { new: true })
+                .exec();
+            if (!updated) {
+                throw new common_1.NotFoundException("Company Claim not found");
+            }
+        }
+        catch (error) {
+            console.error("❌ SERVICE: Error updating claim:", error);
+            throw error;
+        }
+        if (status === company_claim_schema_1.ClaimStatus.PAID) {
+            let paymentIdToUse = null;
+            if (updated.paymentId) {
+                if (typeof updated.paymentId === "string") {
+                    paymentIdToUse = updated.paymentId;
+                }
+                else if (typeof updated.paymentId === "object" &&
+                    updated.paymentId._id) {
+                    paymentIdToUse = updated.paymentId._id;
+                }
+            }
+            if (!paymentIdToUse ||
+                (typeof paymentIdToUse === "string" && paymentIdToUse.trim() === "")) {
+                if (updated.issueId) {
+                    try {
+                        const payments = await this.srPaymentModel
+                            .find({
+                            $or: [
+                                { issueId: updated.issueId },
+                                { issueId: new mongoose_2.Types.ObjectId(updated.issueId) },
+                            ],
+                        })
+                            .exec();
+                        if (payments.length > 0) {
+                            const sortedPayments = payments.sort((a, b) => {
+                                const aTime = a.createdAt
+                                    ? new Date(a.createdAt).getTime()
+                                    : 0;
+                                const bTime = b.createdAt
+                                    ? new Date(b.createdAt).getTime()
+                                    : 0;
+                                return bTime - aTime;
+                            });
+                            const latestPayment = sortedPayments[0];
+                            paymentIdToUse = latestPayment._id.toString();
+                            updated.paymentId = paymentIdToUse;
+                            await updated.save();
+                        }
+                    }
+                    catch (error) {
+                        console.error("Failed to find payment by issueId:", error);
+                    }
+                }
+            }
+            if (paymentIdToUse) {
+                try {
+                    const payment = await this.srPaymentModel
+                        .findById(paymentIdToUse)
+                        .exec();
+                    if (payment) {
+                        const oldReceived = payment.receivedAmount || 0;
+                        const newReceived = oldReceived + updated.totalCompanyClaim;
+                        payment.receivedAmount = newReceived;
+                        const savedPayment = await payment.save();
+                        console.log("💰 Saved payment receivedAmount:", savedPayment.receivedAmount);
+                        const verifyPayment = await this.srPaymentModel
+                            .findById(paymentIdToUse)
+                            .exec();
+                        console.log("🔍 Verification - payment receivedAmount after save:", verifyPayment === null || verifyPayment === void 0 ? void 0 : verifyPayment.receivedAmount);
+                        console.log("💰 Claim amount added:", updated.totalCompanyClaim);
+                    }
+                    else {
+                        console.error("❌ Payment not found for update:", paymentIdToUse);
+                    }
+                }
+                catch (error) {
+                    console.error("Failed to update payment receivedAmount:", error);
+                }
+            }
+        }
+        setTimeout(async () => {
+            try {
+                console.log("📡 Emitting claims-data-refresh WebSocket event");
+                await this.notificationsGateway.emitClaimsDataRefresh();
+                console.log("✅ Claims data refresh event emitted successfully");
+            }
+            catch (error) {
+                console.error("❌ Failed to emit claims data refresh:", error);
+            }
+        }, 100);
+        return updated;
+    }
+    catch(error) {
+        console.error("❌ SERVICE: updateStatus outer catch:", error);
+        throw error;
     }
 };
 exports.CompanyClaimsService = CompanyClaimsService;
@@ -109,7 +230,10 @@ exports.CompanyClaimsService = CompanyClaimsService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(company_claim_schema_1.CompanyClaim.name)),
     __param(1, (0, mongoose_1.InjectModel)(company_schema_1.Company.name)),
+    __param(2, (0, mongoose_1.InjectModel)(sr_payment_schema_1.SRPayment.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
-        mongoose_2.Model])
+        mongoose_2.Model,
+        mongoose_2.Model,
+        notifications_gateway_1.NotificationsGateway])
 ], CompanyClaimsService);
 //# sourceMappingURL=company-claims.service.js.map

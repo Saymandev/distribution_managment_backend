@@ -1,4 +1,4 @@
-import { Document, Types } from 'mongoose';
+import { Document, Types } from "mongoose";
 export type SRIssueDocument = SRIssue & Document;
 export declare class SRIssueItem {
     productId: string;
@@ -13,6 +13,9 @@ export declare class SRIssue {
     totalAmount: number;
     issueDate: Date;
     notes?: string;
+    calculatedTotalAmount?: number;
+    calculatedReceivedAmount?: number;
+    calculatedDue?: number;
 }
 export declare const SRIssueSchema: import("mongoose").Schema<SRIssue, import("mongoose").Model<SRIssue, any, any, any, Document<unknown, any, SRIssue, any, {}> & SRIssue & {
     _id: Types.ObjectId;

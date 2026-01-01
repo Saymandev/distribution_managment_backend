@@ -20,7 +20,7 @@ __decorate([
     __metadata("design:type", String)
 ], SalesRep.prototype, "name", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Company', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: "Company", required: true }),
     __metadata("design:type", String)
 ], SalesRep.prototype, "companyId", void 0);
 __decorate([

@@ -25,13 +25,27 @@ let ExpensesService = class ExpensesService {
         const created = new this.expenseModel(Object.assign(Object.assign({}, dto), { date: new Date(dto.date) }));
         return created.save();
     }
-    async findAll() {
-        return this.expenseModel.find().sort({ date: -1 }).exec();
+    async findAll(companyId, startDate, endDate) {
+        console.log(`🔍 ExpensesService.findAll called with: companyId=${companyId}, startDate=${startDate}, endDate=${endDate}`);
+        const filter = {};
+        if (companyId) {
+            filter.companyId = companyId;
+            console.log(`🔍 Filter updated with companyId: ${filter.companyId}`);
+        }
+        if (startDate && endDate) {
+            filter.date = {
+                $gte: new Date(startDate),
+                $lte: new Date(endDate),
+            };
+            console.log(`🔍 Filter updated with date range: ${JSON.stringify(filter.date)}`);
+        }
+        console.log(`🔍 Final filter for findAll: ${JSON.stringify(filter)}`);
+        return this.expenseModel.find(filter).sort({ date: -1 }).exec();
     }
     async findOne(id) {
         const expense = await this.expenseModel.findById(id).exec();
         if (!expense) {
-            throw new common_1.NotFoundException('Expense not found');
+            throw new common_1.NotFoundException("Expense not found");
         }
         return expense;
     }
@@ -44,14 +58,14 @@ let ExpensesService = class ExpensesService {
             .findByIdAndUpdate(id, { $set: updateData }, { new: true })
             .exec();
         if (!updated) {
-            throw new common_1.NotFoundException('Expense not found');
+            throw new common_1.NotFoundException("Expense not found");
         }
         return updated;
     }
     async remove(id) {
         const res = await this.expenseModel.findByIdAndDelete(id).exec();
         if (!res) {
-            throw new common_1.NotFoundException('Expense not found');
+            throw new common_1.NotFoundException("Expense not found");
         }
     }
     async getTotalByDateRange(startDate, endDate) {
@@ -64,7 +78,7 @@ let ExpensesService = class ExpensesService {
             {
                 $group: {
                     _id: null,
-                    total: { $sum: '$amount' },
+                    total: { $sum: "$amount" },
                 },
             },
         ]);

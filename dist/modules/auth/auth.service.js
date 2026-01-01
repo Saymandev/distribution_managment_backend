@@ -39,15 +39,15 @@ let AuthService = class AuthService {
         const user = await this.userModel.findOne({ email, isActive: true }).exec();
         if (!user) {
             console.error(`Login attempt failed: User not found or inactive - ${email}`);
-            throw new common_1.UnauthorizedException('Invalid credentials');
+            throw new common_1.UnauthorizedException("Invalid credentials");
         }
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
             console.error(`Login attempt failed: Invalid password - ${email}`);
-            throw new common_1.UnauthorizedException('Invalid credentials');
+            throw new common_1.UnauthorizedException("Invalid credentials");
         }
         console.log(`Login successful: ${email}`);
-        const _a = user.toObject(), { password: _ } = _a, result = __rest(_a, ["password"]);
+        const _a = user.toObject(), { password: _password } = _a, result = __rest(_a, ["password"]);
         return result;
     }
     async login(loginDto) {
@@ -64,17 +64,17 @@ let AuthService = class AuthService {
         };
     }
     async validateToken(payload) {
-        console.log('validateToken - payload.sub:', payload.sub);
+        console.log("validateToken - payload.sub:", payload.sub);
         const user = await this.userModel.findById(payload.sub).exec();
         if (!user) {
-            console.error('validateToken - user not found for ID:', payload.sub);
-            throw new common_1.UnauthorizedException('User not found');
+            console.error("validateToken - user not found for ID:", payload.sub);
+            throw new common_1.UnauthorizedException("User not found");
         }
         if (!user.isActive) {
-            console.error('validateToken - user inactive:', user.email);
-            throw new common_1.UnauthorizedException('User is inactive');
+            console.error("validateToken - user inactive:", user.email);
+            throw new common_1.UnauthorizedException("User is inactive");
         }
-        console.log('validateToken - success for:', user.email);
+        console.log("validateToken - success for:", user.email);
         return user;
     }
 };

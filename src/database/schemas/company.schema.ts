@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document } from "mongoose";
 
 export type CompanyDocument = Company & Document;
 
@@ -29,4 +29,3 @@ export class Company {
 
 export const CompanySchema = SchemaFactory.createForClass(Company);
 CompanySchema.index({ code: 1 }, { unique: true });
-

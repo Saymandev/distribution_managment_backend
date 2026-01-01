@@ -1,4 +1,4 @@
-import { Document } from 'mongoose';
+import { Document } from "mongoose";
 export type NotificationDocument = Notification & Document;
 export declare enum NotificationType {
     INFO = "info",

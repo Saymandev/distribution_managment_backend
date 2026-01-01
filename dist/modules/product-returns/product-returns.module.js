@@ -11,6 +11,7 @@ const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const company_claim_schema_1 = require("../../database/schemas/company-claim.schema");
 const company_schema_1 = require("../../database/schemas/company.schema");
+const notifications_module_1 = require("../notifications/notifications.module");
 const product_return_schema_1 = require("../../database/schemas/product-return.schema");
 const product_schema_1 = require("../../database/schemas/product.schema");
 const sr_issue_schema_1 = require("../../database/schemas/sr-issue.schema");
@@ -31,6 +32,7 @@ exports.ProductReturnsModule = ProductReturnsModule = __decorate([
                 { name: company_claim_schema_1.CompanyClaim.name, schema: company_claim_schema_1.CompanyClaimSchema },
                 { name: company_schema_1.Company.name, schema: company_schema_1.CompanySchema },
             ]),
+            notifications_module_1.NotificationsModule,
         ],
         controllers: [product_returns_controller_1.ProductReturnsController],
         providers: [product_returns_service_1.ProductReturnsService],

@@ -31,11 +31,11 @@ let SRPaymentsController = class SRPaymentsController {
         }
         return this.srPaymentsService.findAll();
     }
+    getOptimized(companyId) {
+        return this.srPaymentsService.getOptimized(companyId);
+    }
     findOne(id) {
         return this.srPaymentsService.findOne(id);
-    }
-    getDueAmount(issueId) {
-        return this.srPaymentsService.calculateDueAmount(issueId);
     }
     update(id, updateSRPaymentDto) {
         return this.srPaymentsService.update(id, updateSRPaymentDto);
@@ -54,42 +54,42 @@ __decorate([
 ], SRPaymentsController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
-    __param(0, (0, common_1.Query)('srId')),
+    __param(0, (0, common_1.Query)("srId")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], SRPaymentsController.prototype, "findAll", null);
 __decorate([
-    (0, common_1.Get)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Get)("optimized"),
+    __param(0, (0, common_1.Query)("companyId")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], SRPaymentsController.prototype, "getOptimized", null);
+__decorate([
+    (0, common_1.Get)(":id"),
+    __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], SRPaymentsController.prototype, "findOne", null);
 __decorate([
-    (0, common_1.Get)('issue/:issueId/due'),
-    __param(0, (0, common_1.Param)('issueId')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
-], SRPaymentsController.prototype, "getDueAmount", null);
-__decorate([
-    (0, common_1.Patch)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Patch)(":id"),
+    __param(0, (0, common_1.Param)("id")),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, update_sr_payment_dto_1.UpdateSRPaymentDto]),
     __metadata("design:returntype", void 0)
 ], SRPaymentsController.prototype, "update", null);
 __decorate([
-    (0, common_1.Delete)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Delete)(":id"),
+    __param(0, (0, common_1.Param)("id")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], SRPaymentsController.prototype, "remove", null);
 exports.SRPaymentsController = SRPaymentsController = __decorate([
-    (0, common_1.Controller)('sr-payments'),
+    (0, common_1.Controller)("sr-payments"),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     __metadata("design:paramtypes", [sr_payments_service_1.SRPaymentsService])
 ], SRPaymentsController);

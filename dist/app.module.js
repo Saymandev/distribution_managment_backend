@@ -12,6 +12,7 @@ const config_1 = require("@nestjs/config");
 const mongoose_1 = require("@nestjs/mongoose");
 const company_claim_schema_1 = require("./database/schemas/company-claim.schema");
 const company_schema_1 = require("./database/schemas/company.schema");
+const customer_schema_1 = require("./database/schemas/customer.schema");
 const expense_schema_1 = require("./database/schemas/expense.schema");
 const notification_schema_1 = require("./database/schemas/notification.schema");
 const product_return_schema_1 = require("./database/schemas/product-return.schema");
@@ -23,6 +24,7 @@ const user_schema_1 = require("./database/schemas/user.schema");
 const auth_module_1 = require("./modules/auth/auth.module");
 const companies_module_1 = require("./modules/companies/companies.module");
 const company_claims_module_1 = require("./modules/company-claims/company-claims.module");
+const customers_module_1 = require("./modules/customers/customers.module");
 const expenses_module_1 = require("./modules/expenses/expenses.module");
 const notifications_module_1 = require("./modules/notifications/notifications.module");
 const product_returns_module_1 = require("./modules/product-returns/product-returns.module");
@@ -31,6 +33,8 @@ const reports_module_1 = require("./modules/reports/reports.module");
 const salesreps_module_1 = require("./modules/salesreps/salesreps.module");
 const sr_issues_module_1 = require("./modules/sr-issues/sr-issues.module");
 const sr_payments_module_1 = require("./modules/sr-payments/sr-payments.module");
+const supplier_payments_module_1 = require("./modules/supplier-payments/supplier-payments.module");
+const supplier_receipts_module_1 = require("./modules/supplier-receipts/supplier-receipts.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -38,14 +42,17 @@ exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
             config_1.ConfigModule.forRoot({ isGlobal: true }),
-            mongoose_1.MongooseModule.forRoot(process.env.MONGODB_URI || 'mongodb://localhost:27017/dms_db'),
+            mongoose_1.MongooseModule.forRoot(process.env.MONGODB_URI || "mongodb://localhost:27017/dms_db"),
             mongoose_1.MongooseModule.forFeature([
                 { name: user_schema_1.User.name, schema: user_schema_1.UserSchema },
                 { name: company_schema_1.Company.name, schema: company_schema_1.CompanySchema },
+                { name: customer_schema_1.Customer.name, schema: customer_schema_1.CustomerSchema },
                 { name: product_schema_1.Product.name, schema: product_schema_1.ProductSchema },
                 { name: salesrep_schema_1.SalesRep.name, schema: salesrep_schema_1.SalesRepSchema },
                 { name: sr_issue_schema_1.SRIssue.name, schema: sr_issue_schema_1.SRIssueSchema },
                 { name: sr_payment_schema_1.SRPayment.name, schema: sr_payment_schema_1.SRPaymentSchema },
+                { name: sr_payment_schema_1.SupplierPayment.name, schema: sr_payment_schema_1.SupplierPaymentSchema },
+                { name: sr_payment_schema_1.SupplierReceipt.name, schema: sr_payment_schema_1.SupplierReceiptSchema },
                 { name: company_claim_schema_1.CompanyClaim.name, schema: company_claim_schema_1.CompanyClaimSchema },
                 { name: product_return_schema_1.ProductReturn.name, schema: product_return_schema_1.ProductReturnSchema },
                 { name: expense_schema_1.Expense.name, schema: expense_schema_1.ExpenseSchema },
@@ -53,10 +60,13 @@ exports.AppModule = AppModule = __decorate([
             ]),
             auth_module_1.AuthModule,
             companies_module_1.CompaniesModule,
+            customers_module_1.CustomersModule,
             products_module_1.ProductsModule,
             salesreps_module_1.SalesRepsModule,
             sr_issues_module_1.SRIssuesModule,
             sr_payments_module_1.SRPaymentsModule,
+            supplier_payments_module_1.SupplierPaymentsModule,
+            supplier_receipts_module_1.SupplierReceiptsModule,
             company_claims_module_1.CompanyClaimsModule,
             product_returns_module_1.ProductReturnsModule,
             expenses_module_1.ExpensesModule,
