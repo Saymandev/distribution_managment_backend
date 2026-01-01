@@ -24,11 +24,20 @@ export class CompanyClaimsController {
   }
 
   @Get()
-  findAll(@Query("companyId") companyId?: string) {
-    if (companyId) {
-      return this.companyClaimsService.findByCompany(companyId);
-    }
-    return this.companyClaimsService.findAll();
+  findAll(
+    @Query("companyId") companyId?: string,
+    @Query("page") page: number = 1,
+    @Query("limit") limit: number = 10,
+    @Query("timePeriod") timePeriod: "all" | "week" | "month" | "year" = "all",
+    @Query("searchQuery") searchQuery?: string,
+  ) {
+    return this.companyClaimsService.findAll(
+      companyId,
+      Number(page),
+      Number(limit),
+      timePeriod,
+      searchQuery,
+    );
   }
 
   @Get(":id")

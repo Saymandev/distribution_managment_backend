@@ -6,17 +6,12 @@ export declare class SupplierReceiptsController {
     constructor(supplierReceiptsService: SupplierReceiptsService);
     create(createSupplierReceiptDto: CreateSupplierReceiptDto): Promise<import("../../database/schemas/sr-payment.schema").SupplierReceipt>;
     findAll(companyId?: string, startDate?: string, endDate?: string, search?: string, page?: string, limit?: string): Promise<{
-        receipts: (import("../../database/schemas/sr-payment.schema").SupplierReceipt & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
-            _id: import("mongoose").Types.ObjectId;
-        }> & {
-            __v: number;
-        })[];
-        total: number;
+        receipts: any[];
+        total: any;
         page: number;
         limit: number;
         totalPages: number;
-        totalReceiptsValue: number;
-        balance: number;
+        totalReceiptsValue: any;
     }>;
     getSupplierBalance(companyId?: string): Promise<any[]>;
     testBalance(companyId?: string): Promise<{

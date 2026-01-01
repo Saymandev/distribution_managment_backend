@@ -1720,9 +1720,8 @@ let ReportsService = class ReportsService {
             totalIssues: summary.reduce((sum, day) => sum + day.productIssuedCount, 0),
         };
     }
-    async getPendingDeliveries(companyId, page = 1, limit = 10) {
-        var _a, _b, _c;
-        console.log("🔍 Backend: getPendingDeliveries called for company:", companyId, "page:", page, "limit:", limit, "at:", new Date().toISOString());
+    async getPendingDeliveries(companyId, page = 1, limit = 10, timePeriod = "all") {
+        console.log("🔍 Backend: getPendingDeliveries called for company:", companyId, "page:", page, "limit:", limit, "timePeriod:", timePeriod, "at:", new Date().toISOString());
         const issuesQuery = {};
         if (companyId) {
             const companyProducts = await this.productModel
@@ -1735,101 +1734,154 @@ let ReportsService = class ReportsService {
                 .select("_id")
                 .exec();
             const productIdStrings = companyProducts.map((p) => p._id.toString());
-            console.log(`🔍 Found ${companyProducts.length} products for company ${companyId}:`, productIdStrings);
             issuesQuery["items.productId"] = { $in: productIdStrings };
         }
-        const issues = await this.srIssueModel
-            .find(issuesQuery)
-            .populate("srId", "name phone")
-            .populate("items.productId", "name sku unit")
-            .select("issueNumber issueDate srId items")
-            .sort({ issueDate: -1 })
-            .exec();
-        console.log("📋 Found", issues.length, "SR Issues for company", companyId);
-        console.log("🔍 Issues query used:", JSON.stringify(issuesQuery, null, 2));
-        if (issues.length === 0 && companyId) {
-            console.log("🔍 Checking for any SR Issues at all (no company filter):");
-            const allIssues = await this.srIssueModel.find().limit(3).exec();
-            console.log("📋 Total SR Issues in DB:", allIssues.length);
-            if (allIssues.length > 0) {
-                console.log("🔍 Sample issue items:", (_a = allIssues[0].items) === null || _a === void 0 ? void 0 : _a.map((item) => ({
-                    productId: item.productId,
-                    productIdType: typeof item.productId,
-                })));
-            }
+        const dateFilter = {};
+        const now = new Date();
+        switch (timePeriod) {
+            case "week":
+                const startOfWeek = new Date(now);
+                startOfWeek.setDate(now.getDate() - now.getDay());
+                startOfWeek.setHours(0, 0, 0, 0);
+                const endOfWeek = new Date(startOfWeek);
+                endOfWeek.setDate(startOfWeek.getDate() + 6);
+                endOfWeek.setHours(23, 59, 59, 999);
+                dateFilter.issueDate = { $gte: startOfWeek, $lte: endOfWeek };
+                break;
+            case "month":
+                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                startOfMonth.setHours(0, 0, 0, 0);
+                const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                endOfMonth.setHours(23, 59, 59, 999);
+                dateFilter.issueDate = { $gte: startOfMonth, $lte: endOfMonth };
+                break;
+            case "year":
+                const startOfYear = new Date(now.getFullYear(), 0, 1);
+                startOfYear.setHours(0, 0, 0, 0);
+                const endOfYear = new Date(now.getFullYear(), 11, 31);
+                endOfYear.setHours(23, 59, 59, 999);
+                dateFilter.issueDate = { $gte: startOfYear, $lte: endOfYear };
+                break;
+            case "all":
+            default:
+                break;
         }
+        if (Object.keys(dateFilter).length > 0) {
+            issuesQuery.issueDate = dateFilter.issueDate;
+        }
+        const pipeline = [
+            { $match: issuesQuery },
+            {
+                $lookup: {
+                    from: "srpayments",
+                    localField: "_id",
+                    foreignField: "issueId",
+                    as: "payments",
+                },
+            },
+            {
+                $match: {
+                    payments: { $eq: [] },
+                },
+            },
+            { $sort: { issueDate: -1 } },
+        ];
+        const totalCountResult = await this.srIssueModel.aggregate([
+            ...pipeline,
+            { $count: "total" },
+        ]);
+        const totalItems = totalCountResult.length > 0 ? totalCountResult[0].total : 0;
+        const totalPages = Math.ceil(totalItems / limit);
+        pipeline.push({ $skip: (page - 1) * limit }, { $limit: limit }, {
+            $lookup: {
+                from: "salesreps",
+                localField: "srId",
+                foreignField: "_id",
+                as: "srInfo",
+            },
+        }, {
+            $unwind: {
+                path: "$srInfo",
+                preserveNullAndEmptyArrays: true,
+            },
+        }, {
+            $lookup: {
+                from: "products",
+                localField: "items.productId",
+                foreignField: "_id",
+                as: "productInfo",
+            },
+        }, {
+            $project: {
+                issueNumber: 1,
+                issueDate: 1,
+                srId: "$srInfo._id",
+                srName: "$srInfo.name",
+                srPhone: "$srInfo.phone",
+                items: {
+                    $map: {
+                        input: "$items",
+                        as: "item",
+                        in: {
+                            productId: "$$item.productId",
+                            productName: {
+                                $arrayElemAt: [
+                                    "$productInfo.name",
+                                    { $indexOfArray: ["$productInfo._id", "$$item.productId"] },
+                                ],
+                            },
+                            sku: {
+                                $arrayElemAt: [
+                                    "$productInfo.sku",
+                                    { $indexOfArray: ["$productInfo._id", "$$item.productId"] },
+                                ],
+                            },
+                            unit: {
+                                $arrayElemAt: [
+                                    "$productInfo.unit",
+                                    { $indexOfArray: ["$productInfo._id", "$$item.productId"] },
+                                ],
+                            },
+                            quantity: "$$item.quantity",
+                            dealerPrice: "$$item.dealerPrice",
+                            tradePrice: "$$item.tradePrice",
+                            totalValue: {
+                                $multiply: ["$$item.quantity", "$$item.tradePrice"],
+                            },
+                        },
+                    },
+                },
+            },
+        });
+        const paginatedIssues = await this.srIssueModel.aggregate(pipeline);
         const pendingDeliveries = [];
-        for (const issue of issues) {
-            const payment = await this.srPaymentModel
-                .findOne({
-                $or: [{ issueId: issue._id }, { issueId: String(issue._id) }],
-            })
-                .exec();
-            if (!payment) {
-                const srName = ((_b = issue.srId) === null || _b === void 0 ? void 0 : _b.name) || "Unknown SR";
-                const srPhone = ((_c = issue.srId) === null || _c === void 0 ? void 0 : _c.phone) || "";
-                for (const item of issue.items) {
-                    const product = await this.productModel
-                        .findById(item.productId)
-                        .exec();
-                    const productName = (product === null || product === void 0 ? void 0 : product.name) || "Unknown Product";
-                    const sku = (product === null || product === void 0 ? void 0 : product.sku) || "";
-                    const unit = (product === null || product === void 0 ? void 0 : product.unit) || "";
-                    pendingDeliveries.push({
-                        issueId: issue._id,
-                        issueNumber: issue.issueNumber,
-                        issueDate: issue.issueDate,
-                        srId: issue.srId,
-                        srName,
-                        srPhone,
-                        productId: item.productId,
-                        productName,
-                        sku,
-                        unit,
-                        quantity: item.quantity,
-                        dealerPrice: item.dealerPrice,
-                        tradePrice: item.tradePrice,
-                        totalValue: item.quantity * item.tradePrice,
-                    });
-                }
-            }
+        for (const issue of paginatedIssues) {
+            pendingDeliveries.push({
+                issueId: issue._id,
+                issueNumber: issue.issueNumber,
+                issueDate: issue.issueDate,
+                srId: issue.srId,
+                srName: issue.srName || "Unknown SR",
+                srPhone: issue.srPhone || "",
+                deliveries: issue.items,
+                totalItems: issue.items.reduce((sum, item) => sum + item.quantity, 0),
+                totalValue: issue.items.reduce((sum, item) => sum + item.totalValue, 0),
+            });
         }
-        const groupedBySR = pendingDeliveries.reduce((acc, delivery) => {
-            const srId = delivery.srId.toString();
-            if (!acc[srId]) {
-                acc[srId] = {
-                    srId: delivery.srId,
-                    srName: delivery.srName,
-                    srPhone: delivery.srPhone,
-                    deliveries: [],
-                    totalItems: 0,
-                    totalValue: 0,
-                };
-            }
-            acc[srId].deliveries.push(delivery);
-            acc[srId].totalItems += delivery.quantity;
-            acc[srId].totalValue += delivery.totalValue;
-            return acc;
-        }, {});
-        const allPendingDeliveries = Object.values(groupedBySR);
-        const totalDeliveries = allPendingDeliveries.length;
-        const startIndex = (page - 1) * limit;
-        const endIndex = startIndex + limit;
-        const paginatedDeliveries = allPendingDeliveries.slice(startIndex, endIndex);
         const result = {
-            pendingDeliveries: paginatedDeliveries,
-            totalPendingItems: pendingDeliveries.reduce((sum, d) => sum + d.quantity, 0),
+            pendingDeliveries: pendingDeliveries,
+            totalPendingItems: pendingDeliveries.reduce((sum, d) => sum + d.totalItems, 0),
             totalPendingValue: pendingDeliveries.reduce((sum, d) => sum + d.totalValue, 0),
             pagination: {
                 currentPage: page,
-                totalPages: Math.ceil(totalDeliveries / limit),
-                totalItems: totalDeliveries,
+                totalPages: totalPages,
+                totalItems: totalItems,
                 itemsPerPage: limit,
-                hasNextPage: page < Math.ceil(totalDeliveries / limit),
+                hasNextPage: page < totalPages,
                 hasPrevPage: page > 1,
             },
         };
-        console.log("📦 Pending deliveries result:", {
+        console.log("📦 Pending deliveries result (server-side):", {
             srCount: result.pendingDeliveries.length,
             totalItems: result.totalPendingItems,
             totalValue: result.totalPendingValue,

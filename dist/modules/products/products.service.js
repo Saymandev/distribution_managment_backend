@@ -41,7 +41,7 @@ let ProductsService = class ProductsService {
         const products = await this.productModel
             .find()
             .populate("companyId", "name code")
-            .sort({ name: 1 })
+            .sort({ stock: -1, name: 1 })
             .exec();
         const productIds = products.map((p) => p._id);
         const damageReturns = await this.productReturnModel
@@ -131,6 +131,7 @@ let ProductsService = class ProductsService {
         return categories.filter((c) => c && c.trim().length > 0).sort();
     }
     async search(companyId, query, limit) {
+        console.log(`Backend Product Search - Company ID: ${companyId}, Query: ${query}, Limit: ${limit}`);
         const searchFilter = { companyId };
         if (query) {
             searchFilter.$or = [
@@ -138,7 +139,23 @@ let ProductsService = class ProductsService {
                 { sku: { $regex: query, $options: "i" } },
             ];
         }
-        return this.productModel.find(searchFilter).limit(limit).exec();
+        const results = await this.productModel
+            .find(searchFilter)
+            .populate("companyId", "name code")
+            .sort({ stock: -1 })
+            .limit(50)
+            .exec();
+        console.log(`Backend Product Search Results for Query '${query}' and Company '${companyId}':`, results.map((r) => {
+            var _a;
+            return ({
+                id: r._id,
+                name: r.name,
+                sku: r.sku,
+                stock: r.stock,
+                companyId: (_a = r.companyId) === null || _a === void 0 ? void 0 : _a.name,
+            });
+        }));
+        return results;
     }
 };
 exports.ProductsService = ProductsService;

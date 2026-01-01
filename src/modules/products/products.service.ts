@@ -1,19 +1,19 @@
 import {
-    ConflictException,
-    Injectable,
-    NotFoundException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import {
-    ProductReturn,
-    ProductReturnDocument,
-    ReturnStatus,
-    ReturnType,
+  ProductReturn,
+  ProductReturnDocument,
+  ReturnStatus,
+  ReturnType,
 } from "../../database/schemas/product-return.schema";
 import {
-    Product,
-    ProductDocument,
+  Product,
+  ProductDocument,
 } from "../../database/schemas/product.schema";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
@@ -61,7 +61,7 @@ export class ProductsService {
     const products = await this.productModel
       .find()
       .populate("companyId", "name code")
-      .sort({ name: 1 })
+      .sort({ stock: -1, name: 1 })
       .exec();
 
     // Calculate damaged quantity for each product from pending damage returns
@@ -182,6 +182,9 @@ export class ProductsService {
     query: string,
     limit: number,
   ): Promise<Product[]> {
+    console.log(
+      `Backend Product Search - Company ID: ${companyId}, Query: ${query}, Limit: ${limit}`,
+    );
     const searchFilter: any = { companyId };
 
     if (query) {
@@ -191,6 +194,22 @@ export class ProductsService {
       ];
     }
 
-    return this.productModel.find(searchFilter).limit(limit).exec();
+    const results = await this.productModel
+      .find(searchFilter)
+      .populate("companyId", "name code")
+      .sort({ stock: -1 })
+      .limit(50)
+      .exec();
+    console.log(
+      `Backend Product Search Results for Query '${query}' and Company '${companyId}':`,
+      results.map((r) => ({
+        id: r._id,
+        name: r.name,
+        sku: r.sku,
+        stock: r.stock,
+        companyId: (r.companyId as any)?.name,
+      })),
+    );
+    return results;
   }
 }

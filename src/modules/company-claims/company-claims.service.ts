@@ -99,32 +99,202 @@ export class CompanyClaimsService {
     return savedClaim;
   }
 
-  async findAll(): Promise<CompanyClaim[]> {
-    return this.companyClaimModel
-      .find()
-      .populate("companyId", "name code")
-      .populate("paymentId", "receiptNumber")
-      .populate("items.productId", "name sku")
-      .sort({ createdAt: -1 })
-      .exec();
-  }
+  async findAll(
+    companyId?: string,
+    page: number = 1,
+    limit: number = 10,
+    timePeriod: "all" | "week" | "month" | "year" = "all",
+    searchQuery?: string,
+  ): Promise<{ claims: CompanyClaim[]; pagination: any }> {
+    console.log(
+      "🔍 Backend: findAllCompanyClaims called for company:",
+      companyId,
+      "page:",
+      page,
+      "limit:",
+      limit,
+      "timePeriod:",
+      timePeriod,
+      "searchQuery:",
+      searchQuery,
+      "at:",
+      new Date().toISOString(),
+    );
 
-  async findByCompany(companyId: string): Promise<CompanyClaim[]> {
-    return this.companyClaimModel
-      .find({ companyId: companyId })
-      .populate("companyId", "name code")
-      .populate("paymentId", "receiptNumber")
-      .populate("items.productId", "name sku")
-      .sort({ createdAt: -1 })
-      .exec();
+    const matchConditions: any = {};
+
+    if (companyId) {
+      matchConditions.companyId = new Types.ObjectId(companyId);
+    }
+
+    const dateFilter: any = {};
+    const now = new Date();
+    switch (timePeriod) {
+      case "week":
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
+        startOfWeek.setHours(0, 0, 0, 0);
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6); // Saturday
+        endOfWeek.setHours(23, 59, 59, 999);
+        dateFilter.createdAt = { $gte: startOfWeek, $lte: endOfWeek };
+        break;
+      case "month":
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        startOfMonth.setHours(0, 0, 0, 0);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        endOfMonth.setHours(23, 59, 59, 999);
+        dateFilter.createdAt = { $gte: startOfMonth, $lte: endOfMonth };
+        break;
+      case "year":
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        startOfYear.setHours(0, 0, 0, 0);
+        const endOfYear = new Date(now.getFullYear(), 11, 31);
+        endOfYear.setHours(23, 59, 59, 999);
+        dateFilter.createdAt = { $gte: startOfYear, $lte: endOfYear };
+        break;
+      case "all":
+      default:
+        // No date filter for "all"
+        break;
+    }
+
+    if (Object.keys(dateFilter).length > 0) {
+      matchConditions.createdAt = dateFilter.createdAt;
+    }
+
+    if (searchQuery) {
+      const searchRegex = new RegExp(searchQuery, "i");
+      matchConditions.$or = [
+        { claimNumber: searchRegex },
+        { "companyInfo.name": searchRegex },
+        { status: searchRegex },
+      ];
+    }
+
+    const pipeline: any[] = [
+      { $match: matchConditions },
+      {
+        $lookup: {
+          from: "companies",
+          localField: "companyId",
+          foreignField: "_id",
+          as: "companyInfo",
+        },
+      },
+      {
+        $unwind: {
+          path: "$companyInfo",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "srpayments",
+          localField: "paymentId",
+          foreignField: "_id",
+          as: "paymentInfo",
+        },
+      },
+      {
+        $unwind: {
+          path: "$paymentInfo",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "products",
+          localField: "items.productId",
+          foreignField: "_id",
+          as: "productInfo",
+        },
+      },
+      { $sort: { createdAt: -1 } },
+    ];
+
+    // Get total count of matching claims before pagination
+    const totalCountResult = await this.companyClaimModel.aggregate([
+      ...pipeline,
+      { $count: "total" },
+    ]);
+
+    const totalItems =
+      totalCountResult.length > 0 ? totalCountResult[0].total : 0;
+    const totalPages = Math.ceil(totalItems / limit);
+
+    // Add pagination stages to the pipeline
+    pipeline.push(
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+      {
+        $project: {
+          _id: 1,
+          claimNumber: 1,
+          companyId: "$companyInfo",
+          paymentId: "$paymentInfo",
+          items: {
+            $map: {
+              input: "$items",
+              as: "item",
+              in: {
+                productId: {
+                  $arrayElemAt: [
+                    "$productInfo",
+                    { $indexOfArray: ["$productInfo._id", "$$item.productId"] },
+                  ],
+                },
+                quantity: "$$item.quantity",
+                dealerPrice: "$$item.dealerPrice",
+                commissionRate: "$$item.commissionRate",
+                srPayment: "$$item.srPayment",
+                commissionAmount: "$$item.commissionAmount",
+                netFromCompany: "$$item.netFromCompany",
+              },
+            },
+          },
+          totalDealerPrice: 1,
+          totalCommission: 1,
+          totalClaim: 1,
+          totalSRPayment: 1,
+          netFromCompany: 1,
+          status: 1,
+          notes: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          paidDate: 1,
+        },
+      },
+    );
+
+    const claims = await this.companyClaimModel.aggregate(pipeline);
+
+    const result = {
+      claims: claims,
+      pagination: {
+        currentPage: page,
+        totalPages: totalPages,
+        totalItems: totalItems,
+        itemsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+    };
+
+    console.log("📦 Company claims result (server-side):", {
+      claimCount: result.claims.length,
+      pagination: result.pagination,
+    });
+
+    return result;
   }
 
   async findOne(id: string): Promise<CompanyClaim> {
     const claim = await this.companyClaimModel
       .findById(id)
-      .populate("companyId")
-      .populate("paymentId")
-      .populate("items.productId")
+      .populate("companyId", "name code") // Populate for frontend display
+      .populate("paymentId", "receiptNumber") // Populate for frontend display
+      .populate("items.productId", "name sku") // Populate for frontend display
       .exec();
     if (!claim) {
       throw new NotFoundException("Company Claim not found");
@@ -277,9 +447,5 @@ export class CompanyClaimsService {
     }, 100); // 100ms delay
 
     return updated;
-  }
-  catch(error) {
-    console.error("❌ SERVICE: updateStatus outer catch:", error);
-    throw error;
   }
 }

@@ -2,41 +2,41 @@ import { Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import {
-    CompanyClaim,
-    CompanyClaimDocument,
+  CompanyClaim,
+  CompanyClaimDocument,
 } from "../../database/schemas/company-claim.schema";
 import {
-    Company,
-    CompanyDocument,
+  Company,
+  CompanyDocument,
 } from "../../database/schemas/company.schema";
 import {
-    Expense,
-    ExpenseDocument,
+  Expense,
+  ExpenseDocument,
 } from "../../database/schemas/expense.schema";
 import {
-    ProductReturn,
-    ProductReturnDocument,
-    ReturnType,
+  ProductReturn,
+  ProductReturnDocument,
+  ReturnType,
 } from "../../database/schemas/product-return.schema";
 import {
-    Product,
-    ProductDocument,
+  Product,
+  ProductDocument,
 } from "../../database/schemas/product.schema";
 import {
-    SalesRep,
-    SalesRepDocument,
+  SalesRep,
+  SalesRepDocument,
 } from "../../database/schemas/salesrep.schema";
 import {
-    SRIssue,
-    SRIssueDocument,
+  SRIssue,
+  SRIssueDocument,
 } from "../../database/schemas/sr-issue.schema";
 import {
-    SRPayment,
-    SRPaymentDocument,
-    SupplierPayment,
-    SupplierPaymentDocument,
-    SupplierReceipt,
-    SupplierReceiptDocument,
+  SRPayment,
+  SRPaymentDocument,
+  SupplierPayment,
+  SupplierPaymentDocument,
+  SupplierReceipt,
+  SupplierReceiptDocument,
 } from "../../database/schemas/sr-payment.schema";
 
 @Injectable()
@@ -2424,6 +2424,7 @@ export class ReportsService {
     companyId?: string,
     page: number = 1,
     limit: number = 10,
+    timePeriod: "all" | "week" | "month" | "year" = "all",
   ) {
     console.log(
       "🔍 Backend: getPendingDeliveries called for company:",
@@ -2432,14 +2433,14 @@ export class ReportsService {
       page,
       "limit:",
       limit,
+      "timePeriod:",
+      timePeriod,
       "at:",
       new Date().toISOString(),
     );
 
-    // Get all SR issues
     const issuesQuery: any = {};
     if (companyId) {
-      // Find issues where products belong to this company
       const companyProducts = await this.productModel
         .find({
           $or: [
@@ -2450,117 +2451,173 @@ export class ReportsService {
         .select("_id")
         .exec();
       const productIdStrings = companyProducts.map((p) => p._id.toString());
-      console.log(
-        `🔍 Found ${companyProducts.length} products for company ${companyId}:`,
-        productIdStrings,
-      );
       issuesQuery["items.productId"] = { $in: productIdStrings };
     }
 
-    const issues = await this.srIssueModel
-      .find(issuesQuery)
-      .populate("srId", "name phone")
-      .populate("items.productId", "name sku unit")
-      .select("issueNumber issueDate srId items")
-      .sort({ issueDate: -1 })
-      .exec();
-
-    console.log("📋 Found", issues.length, "SR Issues for company", companyId);
-    console.log("🔍 Issues query used:", JSON.stringify(issuesQuery, null, 2));
-
-    if (issues.length === 0 && companyId) {
-      console.log("🔍 Checking for any SR Issues at all (no company filter):");
-      const allIssues = await this.srIssueModel.find().limit(3).exec();
-      console.log("📋 Total SR Issues in DB:", allIssues.length);
-      if (allIssues.length > 0) {
-        console.log(
-          "🔍 Sample issue items:",
-          allIssues[0].items?.map((item) => ({
-            productId: item.productId,
-            productIdType: typeof item.productId,
-          })),
-        );
-      }
+    const dateFilter: any = {};
+    const now = new Date();
+    switch (timePeriod) {
+      case "week":
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
+        startOfWeek.setHours(0, 0, 0, 0);
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6); // Saturday
+        endOfWeek.setHours(23, 59, 59, 999);
+        dateFilter.issueDate = { $gte: startOfWeek, $lte: endOfWeek };
+        break;
+      case "month":
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        startOfMonth.setHours(0, 0, 0, 0);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        endOfMonth.setHours(23, 59, 59, 999);
+        dateFilter.issueDate = { $gte: startOfMonth, $lte: endOfMonth };
+        break;
+      case "year":
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        startOfYear.setHours(0, 0, 0, 0);
+        const endOfYear = new Date(now.getFullYear(), 11, 31);
+        endOfYear.setHours(23, 59, 59, 999);
+        dateFilter.issueDate = { $gte: startOfYear, $lte: endOfYear };
+        break;
+      case "all":
+      default:
+        // No date filter for "all"
+        break;
     }
 
-    const pendingDeliveries: any[] = [];
-
-    for (const issue of issues) {
-      // Check if this issue has been paid for
-      const payment = await this.srPaymentModel
-        .findOne({
-          $or: [{ issueId: issue._id }, { issueId: String(issue._id) }],
-        })
-        .exec();
-
-      // If no payment found, these products are pending delivery
-      if (!payment) {
-        const srName = (issue.srId as any)?.name || "Unknown SR";
-        const srPhone = (issue.srId as any)?.phone || "";
-
-        for (const item of issue.items) {
-          // Get product details
-          const product = await this.productModel
-            .findById(item.productId)
-            .exec();
-          const productName = product?.name || "Unknown Product";
-          const sku = product?.sku || "";
-          const unit = product?.unit || "";
-
-          pendingDeliveries.push({
-            issueId: issue._id,
-            issueNumber: issue.issueNumber,
-            issueDate: issue.issueDate,
-            srId: issue.srId,
-            srName,
-            srPhone,
-            productId: item.productId,
-            productName,
-            sku,
-            unit,
-            quantity: item.quantity,
-            dealerPrice: item.dealerPrice,
-            tradePrice: item.tradePrice,
-            totalValue: item.quantity * item.tradePrice,
-          });
-        }
-      }
+    if (Object.keys(dateFilter).length > 0) {
+      issuesQuery.issueDate = dateFilter.issueDate;
     }
 
-    // Group by SR for better display
-    const groupedBySR = pendingDeliveries.reduce((acc, delivery) => {
-      const srId = delivery.srId.toString();
-      if (!acc[srId]) {
-        acc[srId] = {
-          srId: delivery.srId,
-          srName: delivery.srName,
-          srPhone: delivery.srPhone,
-          deliveries: [],
-          totalItems: 0,
-          totalValue: 0,
-        };
-      }
-      acc[srId].deliveries.push(delivery);
-      acc[srId].totalItems += delivery.quantity;
-      acc[srId].totalValue += delivery.totalValue;
-      return acc;
-    }, {});
+    // Pipeline to find all issues, then filter by payment status
+    const pipeline: any[] = [
+      { $match: issuesQuery },
+      {
+        $lookup: {
+          from: "srpayments",
+          localField: "_id",
+          foreignField: "issueId",
+          as: "payments",
+        },
+      },
+      {
+        $match: {
+          payments: { $eq: [] }, // Only issues with no payments (pending)
+        },
+      },
+      { $sort: { issueDate: -1 } }, // Sort by issue date descending
+    ];
 
-    const allPendingDeliveries = Object.values(groupedBySR);
-    const totalDeliveries = allPendingDeliveries.length;
+    // Get total count of pending issues before pagination
+    const totalCountResult = await this.srIssueModel.aggregate([
+      ...pipeline,
+      { $count: "total" },
+    ]);
 
-    // Apply pagination
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedDeliveries = allPendingDeliveries.slice(
-      startIndex,
-      endIndex,
+    const totalItems =
+      totalCountResult.length > 0 ? totalCountResult[0].total : 0;
+    const totalPages = Math.ceil(totalItems / limit);
+
+    // Add pagination stages to the pipeline
+    pipeline.push(
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: "salesreps",
+          localField: "srId",
+          foreignField: "_id",
+          as: "srInfo",
+        },
+      },
+      {
+        $unwind: {
+          path: "$srInfo",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "products",
+          localField: "items.productId",
+          foreignField: "_id",
+          as: "productInfo",
+        },
+      },
+      {
+        $project: {
+          issueNumber: 1,
+          issueDate: 1,
+          srId: "$srInfo._id",
+          srName: "$srInfo.name",
+          srPhone: "$srInfo.phone",
+          items: {
+            $map: {
+              input: "$items",
+              as: "item",
+              in: {
+                productId: "$$item.productId",
+                productName: {
+                  $arrayElemAt: [
+                    "$productInfo.name",
+                    { $indexOfArray: ["$productInfo._id", "$$item.productId"] },
+                  ],
+                },
+                sku: {
+                  $arrayElemAt: [
+                    "$productInfo.sku",
+                    { $indexOfArray: ["$productInfo._id", "$$item.productId"] },
+                  ],
+                },
+                unit: {
+                  $arrayElemAt: [
+                    "$productInfo.unit",
+                    { $indexOfArray: ["$productInfo._id", "$$item.productId"] },
+                  ],
+                },
+                quantity: "$$item.quantity",
+                dealerPrice: "$$item.dealerPrice",
+                tradePrice: "$$item.tradePrice",
+                totalValue: {
+                  $multiply: ["$$item.quantity", "$$item.tradePrice"],
+                },
+              },
+            },
+          },
+        },
+      },
     );
 
+    const paginatedIssues = await this.srIssueModel.aggregate(pipeline);
+
+    const pendingDeliveries: any[] = [];
+    for (const issue of paginatedIssues) {
+      // Group by SR for better display - simplified for now
+      // This structure is similar to the old implementation but with already populated data
+      pendingDeliveries.push({
+        issueId: issue._id,
+        issueNumber: issue.issueNumber,
+        issueDate: issue.issueDate,
+        srId: issue.srId,
+        srName: issue.srName || "Unknown SR",
+        srPhone: issue.srPhone || "",
+        deliveries: issue.items, // Now contains product details
+        totalItems: issue.items.reduce(
+          (sum: number, item: any) => sum + item.quantity,
+          0,
+        ),
+        totalValue: issue.items.reduce(
+          (sum: number, item: any) => sum + item.totalValue,
+          0,
+        ),
+      });
+    }
+
     const result = {
-      pendingDeliveries: paginatedDeliveries,
+      pendingDeliveries: pendingDeliveries,
       totalPendingItems: pendingDeliveries.reduce(
-        (sum, d) => sum + d.quantity,
+        (sum, d) => sum + d.totalItems,
         0,
       ),
       totalPendingValue: pendingDeliveries.reduce(
@@ -2569,15 +2626,15 @@ export class ReportsService {
       ),
       pagination: {
         currentPage: page,
-        totalPages: Math.ceil(totalDeliveries / limit),
-        totalItems: totalDeliveries,
+        totalPages: totalPages,
+        totalItems: totalItems,
         itemsPerPage: limit,
-        hasNextPage: page < Math.ceil(totalDeliveries / limit),
+        hasNextPage: page < totalPages,
         hasPrevPage: page > 1,
       },
     };
 
-    console.log("📦 Pending deliveries result:", {
+    console.log("📦 Pending deliveries result (server-side):", {
       srCount: result.pendingDeliveries.length,
       totalItems: result.totalPendingItems,
       totalValue: result.totalPendingValue,

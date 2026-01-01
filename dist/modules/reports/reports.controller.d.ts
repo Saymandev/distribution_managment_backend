@@ -91,13 +91,13 @@ export declare class ReportsController {
         totalReceived: number;
     }>;
     getPendingDeliveries(companyId?: string, page?: string, limit?: string): Promise<{
-        pendingDeliveries: unknown[];
+        pendingDeliveries: any[];
         totalPendingItems: any;
         totalPendingValue: any;
         pagination: {
             currentPage: number;
             totalPages: number;
-            totalItems: number;
+            totalItems: any;
             itemsPerPage: number;
             hasNextPage: boolean;
             hasPrevPage: boolean;

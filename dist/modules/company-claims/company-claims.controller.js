@@ -24,11 +24,8 @@ let CompanyClaimsController = class CompanyClaimsController {
     create(createCompanyClaimDto) {
         return this.companyClaimsService.create(createCompanyClaimDto);
     }
-    findAll(companyId) {
-        if (companyId) {
-            return this.companyClaimsService.findByCompany(companyId);
-        }
-        return this.companyClaimsService.findAll();
+    findAll(companyId, page = 1, limit = 10, timePeriod = "all", searchQuery) {
+        return this.companyClaimsService.findAll(companyId, Number(page), Number(limit), timePeriod, searchQuery);
     }
     findOne(id) {
         return this.companyClaimsService.findOne(id);
@@ -51,8 +48,12 @@ __decorate([
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, common_1.Query)("companyId")),
+    __param(1, (0, common_1.Query)("page")),
+    __param(2, (0, common_1.Query)("limit")),
+    __param(3, (0, common_1.Query)("timePeriod")),
+    __param(4, (0, common_1.Query)("searchQuery")),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Number, Number, String, String]),
     __metadata("design:returntype", void 0)
 ], CompanyClaimsController.prototype, "findAll", null);
 __decorate([

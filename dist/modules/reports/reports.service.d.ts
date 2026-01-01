@@ -209,14 +209,14 @@ export declare class ReportsService {
         totalProductIssued: any;
         totalIssues: any;
     }>;
-    getPendingDeliveries(companyId?: string, page?: number, limit?: number): Promise<{
-        pendingDeliveries: unknown[];
+    getPendingDeliveries(companyId?: string, page?: number, limit?: number, timePeriod?: "all" | "week" | "month" | "year"): Promise<{
+        pendingDeliveries: any[];
         totalPendingItems: any;
         totalPendingValue: any;
         pagination: {
             currentPage: number;
             totalPages: number;
-            totalItems: number;
+            totalItems: any;
             itemsPerPage: number;
             hasNextPage: boolean;
             hasPrevPage: boolean;

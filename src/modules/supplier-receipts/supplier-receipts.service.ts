@@ -280,8 +280,8 @@ export class SupplierReceiptsService {
 
   async findAllWithFilters(filters: {
     companyId?: string;
-    startDate?: Date;
-    endDate?: Date;
+    startDate?: string;
+    endDate?: string;
     search?: string;
     page: number;
     limit: number;
@@ -297,41 +297,80 @@ export class SupplierReceiptsService {
       limit,
     });
 
-    const skip = (page - 1) * limit;
+    const matchConditions: any = {};
 
-    // Query all receipts (frontend will filter by company)
-    // For now, return all receipts (frontend will handle company filtering)
-    // TODO: Implement proper embedded object filtering
-    console.log("🔍 Returning all receipts for frontend filtering");
+    if (companyId) {
+      matchConditions["companyId._id"] = new Types.ObjectId(companyId);
+    }
 
-    const receiptsRaw = await this.supplierReceiptModel
-      .find({})
-      .populate("companyId", "name code")
-      .sort({ receiptDate: -1 })
-      .skip(skip)
-      .limit(limit)
-      .exec();
+    if (startDate || endDate) {
+      matchConditions.receiptDate = {};
+      if (startDate) {
+        matchConditions.receiptDate.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        matchConditions.receiptDate.$lte = new Date(
+          new Date(endDate).setHours(23, 59, 59, 999),
+        ); // End of day
+      }
+    }
 
-    const total = await this.supplierReceiptModel.countDocuments({}).exec();
+    if (search) {
+      const searchRegex = new RegExp(search, "i");
+      matchConditions.$or = [
+        { receiptNumber: searchRegex },
+        { invoiceNumber: searchRegex },
+        { "companyId.name": searchRegex },
+        { "items.productName": searchRegex },
+      ];
+    }
 
-    console.log(
-      "📦 Receipts found:",
-      receiptsRaw.length,
-      "total count:",
-      total,
+    const pipeline: any[] = [
+      {
+        $lookup: {
+          from: "companies",
+          localField: "companyId",
+          foreignField: "_id",
+          as: "companyId",
+        },
+      },
+      {
+        $unwind: "$companyId",
+      },
+      {
+        $match: matchConditions,
+      },
+      {
+        $sort: { receiptDate: -1 },
+      },
+    ];
+
+    // Get total count of matching receipts before pagination
+    const totalCountResult = await this.supplierReceiptModel.aggregate([
+      ...pipeline,
+      { $count: "total" },
+    ]);
+
+    const total = totalCountResult.length > 0 ? totalCountResult[0].total : 0;
+    const totalPages = Math.ceil(total / limit);
+
+    // Add pagination stages
+    pipeline.push({ $skip: (page - 1) * limit }, { $limit: limit });
+
+    const receipts = await this.supplierReceiptModel.aggregate(pipeline);
+
+    const totalReceiptsValue = receipts.reduce(
+      (sum, r) => sum + r.totalValue,
+      0,
     );
-
-    // Convert to plain objects (company data is already embedded)
-    const receipts = receiptsRaw.map((receipt) => receipt.toObject());
 
     const result = {
       receipts,
       total,
       page,
       limit,
-      totalPages: Math.ceil(total / limit),
-      totalReceiptsValue: receipts.reduce((sum, r) => sum + r.totalValue, 0),
-      balance: 0, // Skip balance calculation for now
+      totalPages,
+      totalReceiptsValue,
     };
 
     console.log("📦 Backend: Returning supplier receipts data:", {

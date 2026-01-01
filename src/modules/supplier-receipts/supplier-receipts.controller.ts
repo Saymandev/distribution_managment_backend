@@ -39,11 +39,14 @@ export class SupplierReceiptsController {
       companyId,
       page,
       limit,
+      startDate,
+      endDate,
+      search,
     });
     const filters = {
       companyId,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
+      startDate,
+      endDate,
       search,
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 10,
