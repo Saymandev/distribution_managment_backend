@@ -130,7 +130,7 @@ let ProductsService = class ProductsService {
         const categories = await this.productModel.distinct("category").exec();
         return categories.filter((c) => c && c.trim().length > 0).sort();
     }
-    async search(companyId, query, limit) {
+    async searchProducts(companyId, query, limit) {
         console.log(`Backend Product Search - Company ID: ${companyId}, Query: ${query}, Limit: ${limit}`);
         const searchFilter = { companyId };
         if (query) {
@@ -142,10 +142,11 @@ let ProductsService = class ProductsService {
         const results = await this.productModel
             .find(searchFilter)
             .populate("companyId", "name code")
-            .sort({ stock: -1 })
-            .limit(50)
+            .sort({ stock: -1, name: 1 })
+            .limit(limit)
             .exec();
-        console.log(`Backend Product Search Results for Query '${query}' and Company '${companyId}':`, results.map((r) => {
+        results.forEach((r) => console.log("Backend: Product result companyId (raw) before return:", r.companyId));
+        console.log(`Backend Product Search Results for Query '${query}' and Company '${companyId}' (Final):`, results.map((r) => {
             var _a;
             return ({
                 id: r._id,

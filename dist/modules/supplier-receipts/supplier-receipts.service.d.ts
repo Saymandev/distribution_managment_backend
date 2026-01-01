@@ -1,4 +1,4 @@
-import { Model } from "mongoose";
+import { Model, Types } from "mongoose";
 import { CompanyDocument } from "../../database/schemas/company.schema";
 import { ProductDocument } from "../../database/schemas/product.schema";
 import { SupplierPaymentDocument, SupplierReceipt, SupplierReceiptDocument } from "../../database/schemas/sr-payment.schema";
@@ -26,12 +26,16 @@ export declare class SupplierReceiptsService {
         page: number;
         limit: number;
     }): Promise<{
-        receipts: any[];
-        total: any;
+        receipts: (SupplierReceipt & import("mongoose").Document<Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
+            _id: Types.ObjectId;
+        }> & {
+            __v: number;
+        })[];
+        total: number;
         page: number;
         limit: number;
         totalPages: number;
-        totalReceiptsValue: any;
+        totalReceiptsValue: number;
     }>;
     testBalance(companyId?: string): Promise<{
         companyId: string;

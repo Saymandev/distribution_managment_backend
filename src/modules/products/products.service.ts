@@ -177,7 +177,7 @@ export class ProductsService {
     return categories.filter((c) => c && c.trim().length > 0).sort();
   }
 
-  async search(
+  async searchProducts(
     companyId: string,
     query: string,
     limit: number,
@@ -197,19 +197,30 @@ export class ProductsService {
     const results = await this.productModel
       .find(searchFilter)
       .populate("companyId", "name code")
-      .sort({ stock: -1 })
-      .limit(50)
+      .sort({ stock: -1, name: 1 })
+      .limit(limit)
       .exec();
+
+    // Log the raw companyId for each result before returning
+    results.forEach((r) =>
+      console.log(
+        "Backend: Product result companyId (raw) before return:",
+        r.companyId,
+      ),
+    );
+
     console.log(
-      `Backend Product Search Results for Query '${query}' and Company '${companyId}':`,
+      `Backend Product Search Results for Query '${query}' and Company '${companyId}' (Final):`,
       results.map((r) => ({
+        // Map for logging to prevent large object output
         id: r._id,
         name: r.name,
         sku: r.sku,
         stock: r.stock,
-        companyId: (r.companyId as any)?.name,
+        companyId: (r.companyId as any)?.name, // Log company name for readability
       })),
     );
-    return results;
+
+    return results; // Return the full Product objects directly
   }
 }

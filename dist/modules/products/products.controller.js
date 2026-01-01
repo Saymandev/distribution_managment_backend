@@ -35,7 +35,7 @@ let ProductsController = class ProductsController {
         return this.productsService.getUniqueCategories();
     }
     search(companyId, query, limit = "10") {
-        return this.productsService.search(companyId, query, parseInt(limit));
+        return this.productsService.searchProducts(companyId, query, parseInt(limit));
     }
     findOne(id) {
         return this.productsService.findOne(id);

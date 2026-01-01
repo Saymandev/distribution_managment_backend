@@ -1,14 +1,14 @@
 import {
-    Body,
-    Controller,
-    Delete,
-    Get,
-    Param,
-    Patch,
-    Post,
-    Put,
-    Query,
-    UseGuards,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+  UseGuards,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { CreateProductDto } from "./dto/create-product.dto";
@@ -46,7 +46,11 @@ export class ProductsController {
     @Query("query") query: string,
     @Query("limit") limit: string = "10",
   ) {
-    return this.productsService.search(companyId, query, parseInt(limit));
+    return this.productsService.searchProducts(
+      companyId,
+      query,
+      parseInt(limit),
+    );
   }
 
   @Get(":id")

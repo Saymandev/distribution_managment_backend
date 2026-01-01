@@ -15,5 +15,5 @@ export declare class ProductsService {
     remove(id: string): Promise<void>;
     getUniqueUnits(): Promise<string[]>;
     getUniqueCategories(): Promise<string[]>;
-    search(companyId: string, query: string, limit: number): Promise<Product[]>;
+    searchProducts(companyId: string, query: string, limit: number): Promise<Product[]>;
 }

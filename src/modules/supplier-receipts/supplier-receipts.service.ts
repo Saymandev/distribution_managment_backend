@@ -297,88 +297,60 @@ export class SupplierReceiptsService {
       limit,
     });
 
-    const matchConditions: any = {};
+    // Build query conditions
+    const query: any = {};
 
     if (companyId) {
-      matchConditions["companyId._id"] = new Types.ObjectId(companyId);
+      query.companyId = companyId;
     }
 
     if (startDate || endDate) {
-      matchConditions.receiptDate = {};
+      query.receiptDate = {};
       if (startDate) {
-        matchConditions.receiptDate.$gte = new Date(startDate);
+        query.receiptDate.$gte = new Date(startDate);
       }
       if (endDate) {
-        matchConditions.receiptDate.$lte = new Date(
+        query.receiptDate.$lte = new Date(
           new Date(endDate).setHours(23, 59, 59, 999),
         ); // End of day
       }
     }
 
-    if (search) {
-      const searchRegex = new RegExp(search, "i");
-      matchConditions.$or = [
-        { receiptNumber: searchRegex },
-        { invoiceNumber: searchRegex },
-        { "companyId.name": searchRegex },
-        { "items.productName": searchRegex },
-      ];
-    }
+    // Use Mongoose find with populate instead of aggregation
+    const receiptsQuery = this.supplierReceiptModel
+      .find(query)
+      .populate("companyId", "name code")
+      .sort({ receiptDate: -1 });
 
-    const pipeline: any[] = [
-      {
-        $lookup: {
-          from: "companies",
-          localField: "companyId",
-          foreignField: "_id",
-          as: "companyId",
-        },
-      },
-      {
-        $unwind: "$companyId",
-      },
-      {
-        $match: matchConditions,
-      },
-      {
-        $sort: { receiptDate: -1 },
-      },
-    ];
-
-    // Get total count of matching receipts before pagination
-    const totalCountResult = await this.supplierReceiptModel.aggregate([
-      ...pipeline,
-      { $count: "total" },
-    ]);
-
-    const total = totalCountResult.length > 0 ? totalCountResult[0].total : 0;
+    // Get total count for pagination
+    const total = await this.supplierReceiptModel.countDocuments(query);
     const totalPages = Math.ceil(total / limit);
 
-    // Add pagination stages
-    pipeline.push({ $skip: (page - 1) * limit }, { $limit: limit });
+    // Apply pagination
+    const receipts = await receiptsQuery
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .exec();
 
-    const receipts = await this.supplierReceiptModel.aggregate(pipeline);
-
-    const totalReceiptsValue = receipts.reduce(
+    const receiptsRaw = receipts.map((receipt) => receipt.toObject());
+    const totalReceiptsValue = receiptsRaw.reduce(
       (sum, r) => sum + r.totalValue,
       0,
     );
 
-    const result = {
-      receipts,
+    console.log(
+      "✅ Backend: Documents returned after find with populate:",
+      receiptsRaw.length,
+    );
+
+    return {
+      receipts: receiptsRaw,
       total,
       page,
       limit,
       totalPages,
       totalReceiptsValue,
     };
-
-    console.log("📦 Backend: Returning supplier receipts data:", {
-      receiptsCount: receipts.length,
-      total,
-    });
-
-    return result;
   }
 
   async testBalance(companyId?: string) {
