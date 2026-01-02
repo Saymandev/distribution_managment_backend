@@ -36,12 +36,6 @@ export class ProductsService {
     const commissionPercent = dto.commissionPercent ?? 0;
     const dealerPrice = dto.dealerPrice || 0; // Ensure dealerPrice is not undefined
 
-    console.log(
-      "🔧 Backend received dealerPrice:",
-      dealerPrice,
-      "for product:",
-      dto.name,
-    );
     const tradePrice = Number(
       (dealerPrice + dealerPrice * (commissionPercent / 100)).toFixed(2),
     );
@@ -182,9 +176,6 @@ export class ProductsService {
     query: string,
     limit: number,
   ): Promise<Product[]> {
-    console.log(
-      `Backend Product Search - Company ID: ${companyId}, Query: ${query}, Limit: ${limit}`,
-    );
     const searchFilter: any = { companyId };
 
     if (query) {
@@ -200,26 +191,6 @@ export class ProductsService {
       .sort({ stock: -1, name: 1 })
       .limit(limit)
       .exec();
-
-    // Log the raw companyId for each result before returning
-    results.forEach((r) =>
-      console.log(
-        "Backend: Product result companyId (raw) before return:",
-        r.companyId,
-      ),
-    );
-
-    console.log(
-      `Backend Product Search Results for Query '${query}' and Company '${companyId}' (Final):`,
-      results.map((r) => ({
-        // Map for logging to prevent large object output
-        id: r._id,
-        name: r.name,
-        sku: r.sku,
-        stock: r.stock,
-        companyId: (r.companyId as any)?.name, // Log company name for readability
-      })),
-    );
 
     return results; // Return the full Product objects directly
   }

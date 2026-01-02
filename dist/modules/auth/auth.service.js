@@ -46,7 +46,7 @@ let AuthService = class AuthService {
             console.error(`Login attempt failed: Invalid password - ${email}`);
             throw new common_1.UnauthorizedException("Invalid credentials");
         }
-        console.log(`Login successful: ${email}`);
+        
         const _a = user.toObject(), { password: _password } = _a, result = __rest(_a, ["password"]);
         return result;
     }
@@ -64,7 +64,7 @@ let AuthService = class AuthService {
         };
     }
     async validateToken(payload) {
-        console.log("validateToken - payload.sub:", payload.sub);
+       
         const user = await this.userModel.findById(payload.sub).exec();
         if (!user) {
             console.error("validateToken - user not found for ID:", payload.sub);
@@ -74,7 +74,7 @@ let AuthService = class AuthService {
             console.error("validateToken - user inactive:", user.email);
             throw new common_1.UnauthorizedException("User is inactive");
         }
-        console.log("validateToken - success for:", user.email);
+       
         return user;
     }
 };

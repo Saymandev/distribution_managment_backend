@@ -145,9 +145,9 @@ let SupplierReceiptsService = class SupplierReceiptsService {
         }
     }
     async getSupplierBalance(companyId) {
-        console.log("🔍 getSupplierBalance called with companyId:", companyId);
+       
         const matchCondition = companyId ? { companyId: companyId } : {};
-        console.log("🔍 Balance match condition:", matchCondition);
+        
         const supplierPayments = await this.supplierPaymentModel.aggregate([
             { $match: matchCondition },
             {
@@ -178,7 +178,7 @@ let SupplierReceiptsService = class SupplierReceiptsService {
             totalReceived: data.totalReceived,
             receiptCount: data.receiptCount,
         }));
-        console.log("🧾 Supplier receipts manual aggregation result:", supplierReceipts);
+      
         const balanceMap = new Map();
         supplierPayments.forEach((payment) => {
             balanceMap.set(payment._id.toString(), {
@@ -218,14 +218,7 @@ let SupplierReceiptsService = class SupplierReceiptsService {
     }
     async findAllWithFilters(filters) {
         const { companyId, startDate, endDate, search, page, limit } = filters;
-        console.log("🔍 Backend: findAllWithFilters called with:", {
-            companyId,
-            startDate,
-            endDate,
-            search,
-            page,
-            limit,
-        });
+      
         const query = {};
         if (companyId) {
             query.companyId = companyId;
@@ -251,7 +244,7 @@ let SupplierReceiptsService = class SupplierReceiptsService {
             .exec();
         const receiptsRaw = receipts.map((receipt) => receipt.toObject());
         const totalReceiptsValue = receiptsRaw.reduce((sum, r) => sum + r.totalValue, 0);
-        console.log("✅ Backend: Documents returned after find with populate:", receiptsRaw.length);
+       
         return {
             receipts: receiptsRaw,
             total,
@@ -262,7 +255,7 @@ let SupplierReceiptsService = class SupplierReceiptsService {
         };
     }
     async testBalance(companyId) {
-        console.log("🔍 Service: Test balance called with companyId:", companyId);
+        
         if (!companyId) {
             return { error: "companyId required" };
         }
@@ -274,7 +267,7 @@ let SupplierReceiptsService = class SupplierReceiptsService {
                     .select("amount")
                     .then((docs) => {
                     const sum = docs.reduce((sum, doc) => sum + doc.amount, 0);
-                    console.log("🔍 Test: Total Paid:", sum, "from", docs.length, "payments");
+                    
                     return sum;
                 }),
                 this.supplierReceiptModel
@@ -282,12 +275,12 @@ let SupplierReceiptsService = class SupplierReceiptsService {
                     .select("totalValue")
                     .then((docs) => {
                     const sum = docs.reduce((sum, doc) => sum + doc.totalValue, 0);
-                    console.log("🔍 Test: Total Received:", sum, "from", docs.length, "receipts");
+                    
                     return sum;
                 }),
             ]);
             const balance = totalReceived - totalPaid;
-            console.log("🔍 Test: Final balance:", balance);
+            
             return {
                 companyId,
                 totalPaid,

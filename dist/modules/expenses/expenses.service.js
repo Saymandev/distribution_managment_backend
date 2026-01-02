@@ -26,20 +26,20 @@ let ExpensesService = class ExpensesService {
         return created.save();
     }
     async findAll(companyId, startDate, endDate) {
-        console.log(`🔍 ExpensesService.findAll called with: companyId=${companyId}, startDate=${startDate}, endDate=${endDate}`);
+      
         const filter = {};
         if (companyId) {
             filter.companyId = companyId;
-            console.log(`🔍 Filter updated with companyId: ${filter.companyId}`);
+            
         }
         if (startDate && endDate) {
             filter.date = {
                 $gte: new Date(startDate),
                 $lte: new Date(endDate),
             };
-            console.log(`🔍 Filter updated with date range: ${JSON.stringify(filter.date)}`);
+           
         }
-        console.log(`🔍 Final filter for findAll: ${JSON.stringify(filter)}`);
+        
         return this.expenseModel.find(filter).sort({ date: -1 }).exec();
     }
     async findOne(id) {

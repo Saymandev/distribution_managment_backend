@@ -70,14 +70,6 @@ export class ReportsService {
     const endOfToday = new Date();
     endOfToday.setHours(23, 59, 59, 999);
 
-    console.log("📊 Dashboard query:", {
-      companyId,
-      today: today.toISOString(),
-      endOfToday: endOfToday.toISOString(),
-      todayLocal: today.toString(),
-      endOfTodayLocal: endOfToday.toString(),
-    });
-
     // Debug: Check if there's any data at all
     const allPayments = await this.srPaymentModel
       .find()
@@ -94,26 +86,6 @@ export class ReportsService {
       .limit(5)
       .select("date amount")
       .exec();
-
-    console.log("📊 Sample data check:", {
-      payments: allPayments.map((p) => ({
-        date: p.paymentDate,
-        total: p.totalReceived,
-      })),
-      claims: allClaims.map((c) => ({
-        date: (c as any).createdAt,
-        paidDate: (c as any).paidDate,
-        paidDateISO: (c as any).paidDate
-          ? new Date((c as any).paidDate).toISOString()
-          : null,
-        status: (c as any).status,
-        totalClaim: (c as any).totalClaim,
-        net: c.netFromCompany,
-        company: c.companyId,
-        companyStr: c.companyId?.toString(),
-      })),
-      expenses: allExpenses.map((e) => ({ date: e.date, amount: e.amount })),
-    });
 
     // Build match conditions for claims - show ALL claims, not just today's
     // Try using string first - Mongoose/MongoDB should handle the conversion
@@ -192,7 +164,6 @@ export class ReportsService {
         },
       },
     ]);
-    console.log("🔍 All Claims Stats Result:", allClaimsStats);
 
     // Get TODAY's Paid Claims (filtered by paidDate)
     // Paid Claim should show the net amount received from company, not total claim
@@ -206,7 +177,6 @@ export class ReportsService {
         },
       },
     ]);
-    console.log("🔍 Today Paid Claims Result:", todayPaidClaims);
 
     // Today's Expenses
     const todayExpenses = await this.expenseModel.aggregate([
@@ -239,15 +209,6 @@ export class ReportsService {
 
     // Net Profit = Paid Claim - Expense
     const netProfit = paidClaimAmount - expensesTotal;
-
-    console.log("📊 Dashboard results:", {
-      totalClaimAmount: claimsStats.totalClaimAmount,
-      pendingClaimAmount: claimsStats.pendingClaimAmount,
-      paidClaimAmount,
-      netClaimAmount: claimsStats.netClaimAmount,
-      expensesTotal,
-      netProfit,
-    });
 
     return {
       today: {
@@ -314,15 +275,6 @@ export class ReportsService {
 
         const productIds = companyProducts.map((p) => p._id.toString());
 
-        console.log(`📊 Day ${i} (${days[i]}) - Company filtering:`, {
-          companyId,
-          companyIdObj: companyIdObj.toString(),
-          productCount: productIds.length,
-          productIds: productIds.map((p) => p.toString()).slice(0, 3), // Show first 3
-          dayStart: dayStart.toISOString(),
-          dayEnd: dayEnd.toISOString(),
-        });
-
         // Get issues that have these products
         const companyIssues = await this.srIssueModel
           .find({
@@ -332,11 +284,6 @@ export class ReportsService {
           .exec();
 
         const issueIds = companyIssues.map((issue) => issue._id);
-
-        console.log(`📊 Day ${i} (${days[i]}) - Issues found:`, {
-          issueCount: issueIds.length,
-          issueIds: issueIds.map((id) => id.toString()).slice(0, 3), // Show first 3
-        });
 
         if (issueIds.length === 0) {
           daySRPayments = [];
@@ -363,11 +310,6 @@ export class ReportsService {
               },
             },
           ]);
-
-          console.log(`📊 Day ${i} (${days[i]}) - Payment query result:`, {
-            matchCount: daySRPayments.length,
-            total: daySRPayments.length > 0 ? daySRPayments[0].total : 0,
-          });
         }
       } else {
         daySRPayments = await this.srPaymentModel.aggregate([
@@ -391,15 +333,6 @@ export class ReportsService {
           },
         },
       ]);
-
-      if (i === 3 && companyId) {
-        // Log Wednesday (index 3) for debugging
-        console.log(`📊 Day ${i} (${days[i]}) - Claims query:`, {
-          claimMatch: JSON.stringify(claimMatch),
-          claimCount: dayClaims.length,
-          total: dayClaims.length > 0 ? dayClaims[0].total : 0,
-        });
-      }
 
       // Get Expenses for this day
       const dayExpenses = await this.expenseModel.aggregate([
@@ -425,7 +358,6 @@ export class ReportsService {
       });
     }
 
-    console.log("📊 WEEKLY DATA:", JSON.stringify(weeklyData, null, 2));
     return weeklyData;
   }
 
@@ -573,7 +505,6 @@ export class ReportsService {
       });
     }
 
-    console.log("📊 MONTHLY DATA:", JSON.stringify(weeks, null, 2));
     return weeks;
   }
 
@@ -826,14 +757,12 @@ export class ReportsService {
     // Filter products by company if provided
     const productMatch: any = {};
     if (companyId) {
-      console.log("🏢 Filtering floor stock by company:", companyId);
       // Try both ObjectId and string to handle different data types
       productMatch.$or = [
         { companyId: new Types.ObjectId(companyId) },
         { companyId: companyId },
       ];
     } else {
-      console.log("🌍 No company filter - showing all products");
     }
 
     const products = await this.productModel
@@ -842,39 +771,15 @@ export class ReportsService {
       .select("name sku companyId stock dealerPrice tradePrice unit")
       .exec();
 
-    console.log(`📦 Floor stock query - companyId:`, companyId);
-    console.log(`📦 Found ${products.length} products for floor stock`);
-
     if (products.length === 0) {
-      console.log("📦 No products found. Checking total products in DB...");
       const totalProducts = await this.productModel.countDocuments().exec();
-      console.log(`📦 Total products in DB: ${totalProducts}`);
     }
-
-    console.log(
-      "📊 Sample products:",
-      products.slice(0, 3).map((p) => ({
-        name: p.name,
-        sku: p.sku,
-        stock: p.stock,
-        dealerPrice: p.dealerPrice,
-        tradePrice: p.tradePrice,
-        companyId: p.companyId,
-      })),
-    );
 
     // Calculate floor stock value at DP price
     const floorStockData = products.map((p) => {
       const dealerPrice = p.dealerPrice || 0;
       const stock = p.stock || 0;
       const floorStockValue = stock * dealerPrice;
-
-      // Debug: Log products with issues
-      if (stock > 0 && dealerPrice === 0) {
-        console.log(
-          `⚠️ Product "${p.name}" has stock (${stock}) but no dealerPrice - floor value = 0`,
-        );
-      }
 
       return {
         productId: p._id,
@@ -1093,10 +998,6 @@ export class ReportsService {
   }
 
   async getMonthlyReport(companyId?: string, startDate?: Date, endDate?: Date) {
-    console.log(
-      `📊 Monthly report service called with companyId: "${companyId}"`,
-    );
-
     // If no dates provided, default to last 6 months
     const now = new Date();
     const defaultStartDate = new Date(now.getFullYear(), now.getMonth() - 5, 1); // 6 months ago
@@ -1105,20 +1006,11 @@ export class ReportsService {
     const finalStartDate = startDate || defaultStartDate;
     const finalEndDate = endDate || defaultEndDate;
 
-    console.log(
-      `📊 Monthly report query - start: ${finalStartDate.toISOString()}, end: ${finalEndDate.toISOString()}, companyId: "${companyId}"`,
-    );
-
     // Get floor stock data once (not period-based)
     const floorStockData = await this.getFloorStockReport(companyId);
 
     // Get pending claims data
     const pendingClaimsData = await this.getPendingCompanyClaims(companyId);
-    console.log(`📊 Pending claims data:`, {
-      totalPendingClaims: pendingClaimsData.totalPendingClaims,
-      totalClaimCount: pendingClaimsData.totalClaimCount,
-      companiesCount: pendingClaimsData.companies?.length || 0,
-    });
 
     // Generate monthly data within the date range
     const monthlyData = [];
@@ -1127,21 +1019,11 @@ export class ReportsService {
     const endYear = finalEndDate.getFullYear();
     const endMonth = finalEndDate.getMonth();
 
-    console.log(
-      `📊 Month generation: startYear=${startYear}, startMonth=${startMonth}, endYear=${endYear}, endMonth=${endMonth}`,
-    );
-
     for (let year = startYear; year <= endYear; year++) {
       const monthStart = year === startYear ? startMonth : 0;
       const monthEnd = year === endYear ? endMonth : 11;
 
-      console.log(
-        `📊 Year ${year}: monthStart=${monthStart}, monthEnd=${monthEnd}`,
-      );
-
       for (let month = monthStart; month <= monthEnd; month++) {
-        console.log(`📊 Processing month ${month + 1} for year ${year}`);
-
         // Create dates in local timezone to avoid UTC conversion issues
         // Use 1st day of month at start of day
         const monthStartDate = new Date(year, month, 1, 0, 0, 0, 0);
@@ -1155,10 +1037,6 @@ export class ReportsService {
           "0",
         );
         const period = `${periodYear}-${periodMonth}`;
-
-        console.log(
-          `📊 Processing month ${month} (${period}): ${monthStartDate.toISOString()} to ${monthEndDate.toISOString()}`,
-        );
 
         // Get data for this month
         const [
@@ -1187,19 +1065,11 @@ export class ReportsService {
           ),
         ]);
 
-        console.log(
-          `📊 Adding to monthlyData: period=${period}, sales=${salesData.totalSales}, expenses=${expenseData.total}, dues=${duesData.totalCustomerDue}`,
-        );
-
         // Calculate COGS: Cost of Goods Sold
         // COGS = (Inventory Received × Sales Value) ÷ Inventory Received = Sales Value (if all inventory sold)
         // But if inventory received > sales, then COGS = sales value (assuming FIFO or average cost)
         // For simplicity: COGS = min(sales value, inventory received value)
         const cogs = Math.min(salesData.totalSales, inventoryData.totalValue);
-
-        console.log(
-          `🧮 Month ${period}: Sales=${salesData.totalSales}, Inventory=${inventoryData.totalValue}, COGS=${cogs}`,
-        );
 
         monthlyData.push({
           period: period,
@@ -1218,7 +1088,6 @@ export class ReportsService {
 
     // If no months found (date range too narrow), generate last 6 months
     if (monthlyData.length === 0) {
-      console.log("📊 Date range too narrow, showing last 6 months");
       for (let i = 5; i >= 0; i--) {
         const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
@@ -1261,15 +1130,6 @@ export class ReportsService {
       monthlyData[monthlyData.length - 2] || currentMonthData;
 
     // Debug: Log what data we found
-    console.log(
-      "📊 Monthly data found:",
-      monthlyData.map((m) => ({
-        period: m.period,
-        sales: m.totalSales,
-        expenses: m.totalExpenses,
-        dues: m.customerDues,
-      })),
-    );
 
     // Check if we have any real transaction data
     const hasAnyTransactionData = monthlyData.some(
@@ -1279,21 +1139,9 @@ export class ReportsService {
     // Check if we have products (real business setup)
     const hasProducts = floorStockData.totalProducts > 0;
 
-    console.log(
-      `📊 hasAnyTransactionData: ${hasAnyTransactionData}, hasProducts: ${hasProducts}`,
-    );
-    console.log(`📊 currentMonthData before return:`, {
-      period: currentMonthData?.period,
-      customerDues: currentMonthData?.customerDues,
-      customerCount: currentMonthData?.customerCount,
-    });
-
     // Only show sample data if there are no products AND no transactions
     // If there are products but no transactions, show zeros (real empty state)
     if (!hasAnyTransactionData && !hasProducts) {
-      console.log(
-        "📊 No products and no transactions found, using sample data for monthly reports",
-      );
       const sampleMonthlyData = [];
       for (let i = 5; i >= 0; i--) {
         const monthDate = new Date(finalStartDate);
@@ -1443,10 +1291,6 @@ export class ReportsService {
         : []),
     ];
 
-    console.log(
-      `🛒 Sales aggregation for company ${companyId}, date range: ${startDate?.toISOString().slice(0, 7)}-${endDate?.toISOString().slice(0, 7)}`,
-    );
-
     // Debug: Check documents after lookup and company filter
     const debugPipeline = [
       ...pipeline,
@@ -1472,7 +1316,6 @@ export class ReportsService {
       { $match: matchConditions },
       { $count: "stage1_count" },
     ]);
-    console.log(`🛒 DEBUG Stage 1 (date filter):`, stage1);
 
     // 2. After lookup
     const stage2 = await this.srIssueModel.aggregate([
@@ -1487,7 +1330,6 @@ export class ReportsService {
       },
       { $count: "stage2_count" },
     ]);
-    console.log(`🛒 DEBUG Stage 2 (after lookup):`, stage2);
 
     // 3. Check what srInfo contains (before unwind) and also check what sales reps exist
     const stage3 = await this.srIssueModel.aggregate([
@@ -1509,18 +1351,9 @@ export class ReportsService {
         },
       },
     ]);
-    console.log(`🛒 DEBUG Stage 3 (sample lookup results):`, stage3);
 
     // Also check what sales reps exist in the database
     const allSalesReps = await this.salesRepModel.find({}).limit(10);
-    console.log(
-      `🛒 DEBUG All sales reps in database:`,
-      allSalesReps.map((sr) => ({
-        _id: sr._id.toString(),
-        name: sr.name,
-        companyId: sr.companyId,
-      })),
-    );
 
     // 4. After checking for non-empty srInfo
     const stage4 = await this.srIssueModel.aggregate([
@@ -1536,14 +1369,9 @@ export class ReportsService {
       { $match: { srInfo: { $ne: [] } } }, // Only docs where lookup found something
       { $count: "stage4_count" },
     ]);
-    console.log(`🛒 DEBUG Stage 4 (lookup successful):`, stage4);
 
     // Execute debug pipeline to see documents after lookup/company filter
     const debugResult = await this.srIssueModel.aggregate(debugPipeline);
-    console.log(
-      `🛒 DEBUG: SR issues after lookup/company filter:`,
-      debugResult,
-    );
 
     // Add unwind and final group to main pipeline
     pipeline.push(
@@ -1561,15 +1389,7 @@ export class ReportsService {
 
     const sales = await this.srIssueModel.aggregate(pipeline);
 
-    console.log(
-      `🛒 Sales aggregation pipeline:`,
-      JSON.stringify(pipeline, null, 2),
-    );
     const salesResult = await this.srIssueModel.aggregate(pipeline);
-    console.log(
-      `🛒 Sales aggregation result for ${startDate?.toISOString().slice(0, 7)}-${endDate?.toISOString().slice(0, 7)}:`,
-      salesResult,
-    );
 
     // Also check raw SR issues in this date range
     const rawIssues = await this.srIssueModel
@@ -1578,25 +1398,11 @@ export class ReportsService {
       })
       .populate("srId")
       .limit(5);
-    console.log(
-      `🛒 Raw SR issues in date range (${startDate?.toISOString().slice(0, 7)}-${endDate?.toISOString().slice(0, 7)}):`,
-      rawIssues.map((i) => ({
-        id: i._id,
-        date: i.issueDate,
-        total: i.totalAmount,
-        srId: i.srId,
-        srName: (i.srId as any)?.name,
-        srCompanyId: (i.srId as any)?.companyId,
-      })),
-    );
 
     // Check if the SR belongs to the right company
     const targetCompanyId = "6952be28ed9c95d9d860fe54"; // From the logs
     const issuesWithCompanyMatch = rawIssues.filter(
       (i) => (i.srId as any)?.companyId?.toString() === targetCompanyId,
-    );
-    console.log(
-      `🛒 SR issues matching company ${targetCompanyId}: ${issuesWithCompanyMatch.length}/${rawIssues.length}`,
     );
 
     return {
@@ -1627,10 +1433,6 @@ export class ReportsService {
         },
       },
     ]);
-    console.log(
-      `💰 Expenses aggregation result for ${startDate?.toISOString().slice(0, 7)}-${endDate?.toISOString().slice(0, 7)}:`,
-      expenses,
-    );
 
     return {
       total: expenses.length > 0 ? expenses[0].total || 0 : 0,
@@ -1661,10 +1463,6 @@ export class ReportsService {
         },
       },
     ]);
-    console.log(
-      `💳 Supplier payments aggregation result for ${startDate?.toISOString().slice(0, 7)}-${endDate?.toISOString().slice(0, 7)}:`,
-      payments,
-    );
 
     // Also check raw supplier payments
     const rawPayments = await this.supplierPaymentModel
@@ -1672,23 +1470,10 @@ export class ReportsService {
         paymentDate: { $gte: startDate, $lte: endDate },
       })
       .limit(5);
-    console.log(
-      `💳 Raw supplier payments in date range:`,
-      rawPayments.map((p) => ({
-        id: p._id,
-        amount: p.amount,
-        date: p.paymentDate,
-        paymentNumber: p.paymentNumber,
-        companyId: p.companyId,
-      })),
-    );
 
     // Check which payments match the company
     const paymentsMatchingCompany = rawPayments.filter(
       (p) => p.companyId?.toString() === companyId,
-    );
-    console.log(
-      `💳 Supplier payments matching company ${companyId}: ${paymentsMatchingCompany.length}/${rawPayments.length}`,
     );
 
     return {
@@ -1714,14 +1499,6 @@ export class ReportsService {
       ];
     }
 
-    console.log(
-      `📦 Inventory received query for company ${companyId}, date range: ${startDate?.toISOString()} to ${endDate?.toISOString()}`,
-    );
-    console.log(
-      `📦 Match conditions:`,
-      JSON.stringify(matchConditions, null, 2),
-    );
-
     const receipts = await this.supplierReceiptModel.aggregate([
       { $match: matchConditions },
       {
@@ -1732,24 +1509,10 @@ export class ReportsService {
       },
     ]);
 
-    console.log(
-      `📦 Inventory received aggregation result for ${startDate?.toISOString().slice(0, 7)}-${endDate?.toISOString().slice(0, 7)}:`,
-      receipts,
-    );
-
     // Also try a simple find to see if data exists
     const allReceipts = await this.supplierReceiptModel
       .find(matchConditions)
       .limit(5);
-    console.log(
-      `📦 Sample receipts found:`,
-      allReceipts.map((r) => ({
-        receiptNumber: r.receiptNumber,
-        companyId: r.companyId,
-        totalValue: r.totalValue,
-        receiptDate: r.receiptDate,
-      })),
-    );
 
     return {
       totalValue: receipts.length > 0 ? receipts[0].totalValue || 0 : 0,
@@ -1761,14 +1524,9 @@ export class ReportsService {
     startDate?: Date,
     endDate?: Date,
   ) {
-    console.log(
-      `👥 Getting customer dues for period: ${startDate?.toISOString()} to ${endDate?.toISOString()}, company: ${companyId}`,
-    );
-
     // Get SR payments with customer info within the date range
     const paymentMatch: any = {};
     // TEMP: Skip date filtering for debugging
-    console.log(`📅 TEMP: Skipping date filtering for debugging`);
 
     if (companyId) {
       // Filter payments by products from this company
@@ -1784,28 +1542,18 @@ export class ReportsService {
         .exec();
 
       const productIds = companyProducts.map((p) => p._id.toString());
-      console.log(
-        `🏢 Company ${companyId} has ${companyProducts.length} products:`,
-        productIds,
-      );
 
       if (productIds.length > 0) {
         paymentMatch["items.productId"] = { $in: productIds };
-        console.log(
-          `🏢 Filtering customer dues by company ${companyId}, applying filter: ${JSON.stringify(paymentMatch)}`,
-        );
       } else {
         // No products for this company, return empty result
-        console.log(
-          `🏢 No products found for company ${companyId}, returning empty customer dues`,
-        );
+
         return {
           totalCustomerDue: 0,
           customerCount: 0,
         };
       }
     } else {
-      console.log(`🌍 Showing customer dues across all companies`);
     }
 
     const payments = await this.srPaymentModel
@@ -1813,17 +1561,9 @@ export class ReportsService {
       .sort({ paymentDate: -1 })
       .exec();
 
-    console.log(
-      `Found ${payments.length} payments for customer dues calculation`,
-    );
-
     // Filter payments that have customer info and calculate dues
     const paymentsWithCustomerInfo = payments.filter(
       (payment) => payment.customerInfo?.name,
-    );
-
-    console.log(
-      `Found ${paymentsWithCustomerInfo.length} payments with customer info`,
     );
 
     // Group by customer and sum dues
@@ -1857,10 +1597,6 @@ export class ReportsService {
       0,
     );
 
-    console.log(
-      `👥 Customer dues result: total=${totalCustomerDue}, customers=${customersArray.length}`,
-    );
-
     return {
       totalCustomerDue,
       customerCount: customersArray.length,
@@ -1885,49 +1621,21 @@ export class ReportsService {
       )
       .exec();
 
-    console.log(
-      `📋 Pending claims query - companyId:`,
-      companyId,
-      `match:`,
-      claimMatch,
-    );
-    console.log(`📋 Found ${claims.length} pending claims`);
     if (claims.length > 0) {
-      console.log(
-        `📋 Sample claims:`,
-        claims.slice(0, 3).map((c) => ({
-          id: c._id,
-          companyId: c.companyId,
-          totalCompanyClaim: c.totalCompanyClaim,
-          status: c.status,
-        })),
-      );
     } else {
       // Check claims without company filter
       const allClaims = await this.companyClaimModel
         .find({ status: { $in: ["pending", "approved"] } })
         .limit(5);
-      console.log(
-        `📋 All pending claims in DB (no company filter):`,
-        allClaims.map((c) => ({
-          id: c._id,
-          companyId: c.companyId,
-          totalCompanyClaim: c.totalCompanyClaim,
-          status: c.status,
-        })),
-      );
     }
 
     if (claims.length === 0) {
-      console.log("📋 No pending claims found. Checking total claims in DB...");
       const totalClaims = await this.companyClaimModel.countDocuments().exec();
-      console.log(`📋 Total claims in DB: ${totalClaims}`);
 
       // Check what statuses exist
       const statusCounts = await this.companyClaimModel
         .aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }])
         .exec();
-      console.log("📋 Claim status distribution:", statusCounts);
 
       return {
         companies: [],
@@ -2017,10 +1725,6 @@ export class ReportsService {
     const end = endDate || new Date();
     start.setHours(0, 0, 0, 0);
     end.setHours(23, 59, 59, 999);
-
-    console.log(
-      `💰 Daily financial query - start: ${start.toISOString()}, end: ${end.toISOString()}, companyId: ${companyId}`,
-    );
 
     // Build match conditions
     const paymentMatch: any = {
@@ -2313,8 +2017,6 @@ export class ReportsService {
 
     // If no real data found, return sample data for demonstration
     if (summary.length === 0) {
-      console.log("💰 No real daily financial data found, using sample data");
-
       const sampleSummary = [];
       const daysInPeriod = Math.ceil(
         (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
@@ -2426,19 +2128,6 @@ export class ReportsService {
     limit: number = 10,
     timePeriod: "all" | "week" | "month" | "year" = "all",
   ) {
-    console.log(
-      "🔍 Backend: getPendingDeliveries called for company:",
-      companyId,
-      "page:",
-      page,
-      "limit:",
-      limit,
-      "timePeriod:",
-      timePeriod,
-      "at:",
-      new Date().toISOString(),
-    );
-
     const issuesQuery: any = {};
     if (companyId) {
       const companyProducts = await this.productModel
@@ -2634,20 +2323,11 @@ export class ReportsService {
       },
     };
 
-    console.log("📦 Pending deliveries result (server-side):", {
-      srCount: result.pendingDeliveries.length,
-      totalItems: result.totalPendingItems,
-      totalValue: result.totalPendingValue,
-      pagination: result.pagination,
-    });
-
     return result;
   }
 
   // Product History: Date-wise movements for a specific product
   async getProductHistory(productId: string, startDate?: Date, endDate?: Date) {
-    console.log("🔍 Backend: getProductHistory called for product:", productId);
-
     const product = await this.productModel
       .findById(productId)
       .select("_id name sku tradePrice unit")

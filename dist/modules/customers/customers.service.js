@@ -72,20 +72,13 @@ let CustomersService = class CustomersService {
         }
     }
     async getCustomerSummaries(companyId, page = 1, limit = 10, searchQuery = "", startDate, endDate) {
-        console.log("🔍 Getting customer summaries:", {
-            companyId,
-            page,
-            limit,
-            searchQuery,
-            startDate: startDate === null || startDate === void 0 ? void 0 : startDate.toISOString(),
-            endDate: endDate === null || endDate === void 0 ? void 0 : endDate.toISOString(),
-        });
-        console.log(`🔍 Using companyId: ${companyId}`);
+       
+      
         const paymentMatch = {};
-        console.log(`📅 TEMP: Skipping date filtering for debugging`);
+        
         if (companyId) {
-            console.log(`🏢 Customers service - filtering by company: ${companyId}`);
-            console.log(`🏢 Looking for products with companyId: ${companyId} (type: ${typeof companyId})`);
+            
+            
             const companyProducts = await this.productModel
                 .find({
                 $or: [
@@ -96,15 +89,15 @@ let CustomersService = class CustomersService {
             })
                 .select("_id name")
                 .exec();
-            console.log(`🏢 Found ${companyProducts.length} products for company ${companyId}:`, companyProducts.map((p) => ({ id: p._id, name: p.name })));
+            
             const productIds = companyProducts.map((p) => p._id.toString());
-            console.log(`🏢 Product IDs:`, productIds);
+          
             if (productIds.length > 0) {
                 paymentMatch["items.productId"] = { $in: productIds };
-                console.log(`🏢 Filtering customer summaries by company ${companyId}, applying filter: ${JSON.stringify(paymentMatch)}`);
+                
             }
             else {
-                console.log(`🏢 No products found for company ${companyId}, returning empty customer summaries`);
+                
                 return {
                     customers: [],
                     pagination: {
@@ -119,16 +112,16 @@ let CustomersService = class CustomersService {
             }
         }
         else {
-            console.log(`🌍 Showing all customers across all companies`);
+           
         }
-        console.log(`🔍 Customers service - paymentMatch:`, JSON.stringify(paymentMatch));
+        
         let payments = await this.srPaymentModel
             .find(paymentMatch)
             .sort({ paymentDate: -1 })
             .exec();
-        console.log(`🔍 Customers service - found ${payments.length} payments total`);
+        
         payments = payments.filter((payment) => { var _a; return (_a = payment.customerInfo) === null || _a === void 0 ? void 0 : _a.name; });
-        console.log(`🔍 Customers service - found ${payments.length} payments with customer info`);
+       
         const customerMap = new Map();
         payments.forEach((payment) => {
             var _a;
@@ -187,7 +180,7 @@ let CustomersService = class CustomersService {
         };
     }
     async searchCustomers(query, limit = 5) {
-        console.log("🔍 Searching customers:", { query, limit });
+      
         const customers = await this.customerModel
             .find({
             $or: [

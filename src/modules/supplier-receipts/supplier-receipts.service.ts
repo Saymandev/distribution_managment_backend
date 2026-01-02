@@ -180,9 +180,7 @@ export class SupplierReceiptsService {
 
   // Get supplier balance summary
   async getSupplierBalance(companyId?: string) {
-    console.log("🔍 getSupplierBalance called with companyId:", companyId);
     const matchCondition = companyId ? { companyId: companyId } : {};
-    console.log("🔍 Balance match condition:", matchCondition);
 
     // Get all payments made to suppliers
     const supplierPayments = await this.supplierPaymentModel.aggregate([
@@ -222,11 +220,6 @@ export class SupplierReceiptsService {
         totalReceived: data.totalReceived,
         receiptCount: data.receiptCount,
       }),
-    );
-
-    console.log(
-      "🧾 Supplier receipts manual aggregation result:",
-      supplierReceipts,
     );
 
     // Combine the data
@@ -288,15 +281,6 @@ export class SupplierReceiptsService {
   }) {
     const { companyId, startDate, endDate, search, page, limit } = filters;
 
-    console.log("🔍 Backend: findAllWithFilters called with:", {
-      companyId,
-      startDate,
-      endDate,
-      search,
-      page,
-      limit,
-    });
-
     // Build query conditions
     const query: any = {};
 
@@ -338,11 +322,6 @@ export class SupplierReceiptsService {
       0,
     );
 
-    console.log(
-      "✅ Backend: Documents returned after find with populate:",
-      receiptsRaw.length,
-    );
-
     return {
       receipts: receiptsRaw,
       total,
@@ -354,7 +333,6 @@ export class SupplierReceiptsService {
   }
 
   async testBalance(companyId?: string) {
-    console.log("🔍 Service: Test balance called with companyId:", companyId);
     if (!companyId) {
       return { error: "companyId required" };
     }
@@ -367,13 +345,7 @@ export class SupplierReceiptsService {
           .select("amount")
           .then((docs) => {
             const sum = docs.reduce((sum, doc) => sum + doc.amount, 0);
-            console.log(
-              "🔍 Test: Total Paid:",
-              sum,
-              "from",
-              docs.length,
-              "payments",
-            );
+
             return sum;
           }),
         this.supplierReceiptModel
@@ -381,19 +353,12 @@ export class SupplierReceiptsService {
           .select("totalValue")
           .then((docs) => {
             const sum = docs.reduce((sum, doc) => sum + doc.totalValue, 0);
-            console.log(
-              "🔍 Test: Total Received:",
-              sum,
-              "from",
-              docs.length,
-              "receipts",
-            );
+
             return sum;
           }),
       ]);
 
       const balance = totalReceived - totalPaid;
-      console.log("🔍 Test: Final balance:", balance);
 
       return {
         companyId,

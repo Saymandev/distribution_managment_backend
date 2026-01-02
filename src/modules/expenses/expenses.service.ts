@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
+import { Model } from "mongoose";
 import {
   Expense,
   ExpenseDocument,
@@ -28,12 +28,10 @@ export class ExpensesService {
     startDate?: string,
     endDate?: string,
   ): Promise<Expense[]> {
-    console.log(`🔍 ExpensesService.findAll called with: companyId=${companyId}, startDate=${startDate}, endDate=${endDate}`);
     const filter: any = {};
 
     if (companyId) {
       filter.companyId = companyId;
-      console.log(`🔍 Filter updated with companyId: ${filter.companyId}`);
     }
 
     if (startDate && endDate) {
@@ -41,10 +39,8 @@ export class ExpensesService {
         $gte: new Date(startDate),
         $lte: new Date(endDate),
       };
-      console.log(`🔍 Filter updated with date range: ${JSON.stringify(filter.date)}`);
     }
 
-    console.log(`🔍 Final filter for findAll: ${JSON.stringify(filter)}`);
     return this.expenseModel.find(filter).sort({ date: -1 }).exec();
   }
 

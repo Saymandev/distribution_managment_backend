@@ -335,11 +335,6 @@ export class SRIssuesService {
       return dateB - dateA; // Sort descending (newest first)
     });
 
-    console.log(
-      "[SRIssuesService] getOptimized - Final enrichedIssues before return:",
-      enrichedIssues,
-    );
-
     return {
       issues: enrichedIssues,
       salesReps,

@@ -28,7 +28,6 @@ export class AuthService {
       throw new UnauthorizedException("Invalid credentials");
     }
 
-    console.log(`Login successful: ${email}`);
     const { password: _password, ...result } = user.toObject();
     return result;
   }
@@ -48,7 +47,6 @@ export class AuthService {
   }
 
   async validateToken(payload: any) {
-    console.log("validateToken - payload.sub:", payload.sub);
     const user = await this.userModel.findById(payload.sub).exec();
     if (!user) {
       console.error("validateToken - user not found for ID:", payload.sub);
@@ -58,7 +56,7 @@ export class AuthService {
       console.error("validateToken - user inactive:", user.email);
       throw new UnauthorizedException("User is inactive");
     }
-    console.log("validateToken - success for:", user.email);
+
     return user;
   }
 }

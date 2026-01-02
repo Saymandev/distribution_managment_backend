@@ -1,10 +1,10 @@
 import {
-    Controller,
-    Get,
-    Param,
-    Query,
-    Request,
-    UseGuards,
+  Controller,
+  Get,
+  Param,
+  Query,
+  Request,
+  UseGuards,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { ReportsService } from "./reports.service";
@@ -16,7 +16,6 @@ export class ReportsController {
 
   @Get("dashboard")
   getDashboard(@Request() req, @Query("companyId") companyId?: string) {
-    console.log("Dashboard request - user:", req.user);
     return this.reportsService.getDashboard(companyId);
   }
 
@@ -95,13 +94,10 @@ export class ReportsController {
     @Query("startDate") startDate?: string,
     @Query("endDate") endDate?: string,
   ) {
-    console.log(
-      `📊 Monthly report controller: companyId="${companyId}", startDate="${startDate}", endDate="${endDate}"`,
-    );
     // Parse dates properly to avoid timezone issues
     const start = startDate ? this.parseDateString(startDate, true) : undefined; // Start of day
     const end = endDate ? this.parseDateString(endDate, false) : undefined; // End of day
-    console.log(`📊 Calling service with companyId="${companyId}"`);
+
     return this.reportsService.getMonthlyReport(companyId, start, end);
   }
 

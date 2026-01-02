@@ -35,14 +35,6 @@ export class SupplierReceiptsController {
     @Query("page") page?: string,
     @Query("limit") limit?: string,
   ) {
-    console.log("🎯 Controller: findAll called with params:", {
-      companyId,
-      page,
-      limit,
-      startDate,
-      endDate,
-      search,
-    });
     const filters = {
       companyId,
       startDate,
@@ -51,9 +43,8 @@ export class SupplierReceiptsController {
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 10,
     };
-    console.log("🎯 Controller: calling service with filters:", filters);
     const result = this.supplierReceiptsService.findAllWithFilters(filters);
-    console.log("🎯 Controller: service returned:", result ? "result" : "null");
+
     return result;
   }
 

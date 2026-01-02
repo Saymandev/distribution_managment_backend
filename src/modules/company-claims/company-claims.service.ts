@@ -106,21 +106,6 @@ export class CompanyClaimsService {
     timePeriod: "all" | "week" | "month" | "year" = "all",
     searchQuery?: string,
   ): Promise<{ claims: CompanyClaim[]; pagination: any }> {
-    console.log(
-      "🔍 Backend: findAllCompanyClaims called for company:",
-      companyId,
-      "page:",
-      page,
-      "limit:",
-      limit,
-      "timePeriod:",
-      timePeriod,
-      "searchQuery:",
-      searchQuery,
-      "at:",
-      new Date().toISOString(),
-    );
-
     const matchConditions: any = {};
 
     if (companyId) {
@@ -281,11 +266,6 @@ export class CompanyClaimsService {
       },
     };
 
-    console.log("📦 Company claims result (server-side):", {
-      claimCount: result.claims.length,
-      pagination: result.pagination,
-    });
-
     return result;
   }
 
@@ -412,20 +392,11 @@ export class CompanyClaimsService {
             const newReceived = oldReceived + updated.totalCompanyClaim;
             payment.receivedAmount = newReceived;
             const savedPayment = await payment.save();
-            console.log(
-              "💰 Saved payment receivedAmount:",
-              savedPayment.receivedAmount,
-            );
 
             // Verify the save worked by fetching again
             const verifyPayment = await this.srPaymentModel
               .findById(paymentIdToUse)
               .exec();
-            console.log(
-              "🔍 Verification - payment receivedAmount after save:",
-              verifyPayment?.receivedAmount,
-            );
-            console.log("💰 Claim amount added:", updated.totalCompanyClaim);
           } else {
             console.error("❌ Payment not found for update:", paymentIdToUse);
           }
@@ -438,9 +409,7 @@ export class CompanyClaimsService {
     // Emit WebSocket event for cross-page updates (payment receivedAmount changed)
     setTimeout(async () => {
       try {
-        console.log("📡 Emitting claims-data-refresh WebSocket event");
         await this.notificationsGateway.emitClaimsDataRefresh();
-        console.log("✅ Claims data refresh event emitted successfully");
       } catch (error) {
         console.error("❌ Failed to emit claims data refresh:", error);
       }

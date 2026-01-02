@@ -644,11 +644,6 @@ export class SRPaymentsService {
     let filteredReturns = returns;
     let filteredClaims = claims;
 
-    console.log(
-      "[SRPaymentsService] getOptimized - filteredClaims BEFORE issueClaimMap population:",
-      filteredClaims,
-    );
-
     const getCompanyIdString = (obj: any): string | undefined => {
       if (!obj || !obj.companyId) return undefined;
       return typeof obj.companyId === "string"
@@ -808,16 +803,6 @@ export class SRPaymentsService {
       const dateB = new Date(b.paymentDate || (b as any).createdAt).getTime();
       return dateB - dateA; // Sort descending (newest first)
     });
-
-    console.log(
-      "[SRPaymentsService] getOptimized - Final filteredPayments before return:",
-      filteredPayments,
-    );
-
-    console.log(
-      "[SRPaymentsService] getOptimized - Final dueAmounts:",
-      dueAmounts,
-    );
 
     return {
       payments: filteredPayments,

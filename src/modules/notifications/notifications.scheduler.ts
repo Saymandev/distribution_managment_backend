@@ -13,7 +13,6 @@ export class NotificationsScheduler {
   // Run every hour to check low stock
   @Cron(CronExpression.EVERY_HOUR)
   async handleLowStockCheck() {
-    console.log("🔔 Running low stock check...");
     const notifications = await this.notificationsService.checkLowStock();
     // Emit new notifications to connected clients
     if (notifications && notifications.length > 0) {
@@ -34,7 +33,6 @@ export class NotificationsScheduler {
   // Run every 6 hours to check pending payments
   @Cron("0 */6 * * *")
   async handlePendingPaymentsCheck() {
-    console.log("🔔 Running pending payments check...");
     const notifications =
       await this.notificationsService.checkPendingPayments();
     if (notifications && notifications.length > 0) {
@@ -55,7 +53,6 @@ export class NotificationsScheduler {
   // Run daily at 9 AM to check pending claims
   @Cron("0 9 * * *")
   async handlePendingClaimsCheck() {
-    console.log("🔔 Running pending claims check...");
     const notifications = await this.notificationsService.checkPendingClaims();
     if (notifications && notifications.length > 0) {
       notifications.forEach((notif) => {

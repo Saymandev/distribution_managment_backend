@@ -76,7 +76,7 @@ let CompanyClaimsService = class CompanyClaimsService {
         return savedClaim;
     }
     async findAll(companyId, page = 1, limit = 10, timePeriod = "all", searchQuery) {
-        console.log("🔍 Backend: findAllCompanyClaims called for company:", companyId, "page:", page, "limit:", limit, "timePeriod:", timePeriod, "searchQuery:", searchQuery, "at:", new Date().toISOString());
+       
         const matchConditions = {};
         if (companyId) {
             matchConditions.companyId = new mongoose_2.Types.ObjectId(companyId);
@@ -218,10 +218,7 @@ let CompanyClaimsService = class CompanyClaimsService {
                 hasPrevPage: page > 1,
             },
         };
-        console.log("📦 Company claims result (server-side):", {
-            claimCount: result.claims.length,
-            pagination: result.pagination,
-        });
+        
         return result;
     }
     async findOne(id) {
@@ -323,12 +320,12 @@ let CompanyClaimsService = class CompanyClaimsService {
                         const newReceived = oldReceived + updated.totalCompanyClaim;
                         payment.receivedAmount = newReceived;
                         const savedPayment = await payment.save();
-                        console.log("💰 Saved payment receivedAmount:", savedPayment.receivedAmount);
+                        
                         const verifyPayment = await this.srPaymentModel
                             .findById(paymentIdToUse)
                             .exec();
-                        console.log("🔍 Verification - payment receivedAmount after save:", verifyPayment === null || verifyPayment === void 0 ? void 0 : verifyPayment.receivedAmount);
-                        console.log("💰 Claim amount added:", updated.totalCompanyClaim);
+                        
+                        
                     }
                     else {
                         console.error("❌ Payment not found for update:", paymentIdToUse);
@@ -341,9 +338,9 @@ let CompanyClaimsService = class CompanyClaimsService {
         }
         setTimeout(async () => {
             try {
-                console.log("📡 Emitting claims-data-refresh WebSocket event");
+                
                 await this.notificationsGateway.emitClaimsDataRefresh();
-                console.log("✅ Claims data refresh event emitted successfully");
+               
             }
             catch (error) {
                 console.error("❌ Failed to emit claims data refresh:", error);

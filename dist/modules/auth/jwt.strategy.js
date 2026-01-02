@@ -17,7 +17,7 @@ const auth_service_1 = require("./auth.service");
 let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(passport_jwt_1.Strategy) {
     constructor(authService) {
         const secret = process.env.JWT_SECRET || "your-secret-key-change-in-production";
-        console.log("🔑 JWT Strategy initialized with secret:", secret.substring(0, 10) + "...");
+       
         super({
             jwtFromRequest: passport_jwt_1.ExtractJwt.fromAuthHeaderAsBearerToken(),
             ignoreExpiration: false,
@@ -28,7 +28,7 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
     }
     async validate(payload) {
         try {
-            console.log("🔑 JWT Strategy validate - payload received:", JSON.stringify(payload, null, 2));
+            
             if (!payload || !payload.sub) {
                 console.error("❌ JWT Strategy validate - Invalid payload, missing sub");
                 throw new common_1.UnauthorizedException("Invalid token payload");
@@ -38,7 +38,7 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
                 console.error("❌ JWT Strategy validate - user not found for ID:", payload.sub);
                 throw new common_1.UnauthorizedException("User not found");
             }
-            console.log("✅ JWT Strategy validate - success for:", user.email);
+            
             return { userId: user._id, email: user.email };
         }
         catch (error) {
