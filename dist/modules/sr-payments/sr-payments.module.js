@@ -17,6 +17,7 @@ const salesrep_schema_1 = require("../../database/schemas/salesrep.schema");
 const sr_issue_schema_1 = require("../../database/schemas/sr-issue.schema");
 const sr_payment_schema_1 = require("../../database/schemas/sr-payment.schema");
 const notifications_module_1 = require("../notifications/notifications.module");
+const product_returns_module_1 = require("../product-returns/product-returns.module");
 const sr_payments_controller_1 = require("./sr-payments.controller");
 const sr_payments_service_1 = require("./sr-payments.service");
 let SRPaymentsModule = class SRPaymentsModule {
@@ -35,6 +36,7 @@ exports.SRPaymentsModule = SRPaymentsModule = __decorate([
                 { name: product_return_schema_1.ProductReturn.name, schema: product_return_schema_1.ProductReturnSchema },
             ]),
             notifications_module_1.NotificationsModule,
+            product_returns_module_1.ProductReturnsModule,
         ],
         controllers: [sr_payments_controller_1.SRPaymentsController],
         providers: [sr_payments_service_1.SRPaymentsService],

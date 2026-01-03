@@ -30,6 +30,7 @@ const mongoose_1 = require("@nestjs/mongoose");
 const bcrypt = require("bcrypt");
 const mongoose_2 = require("mongoose");
 const user_schema_1 = require("../../database/schemas/user.schema");
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
 let AuthService = class AuthService {
     constructor(userModel, jwtService) {
         this.userModel = userModel;
@@ -46,15 +47,22 @@ let AuthService = class AuthService {
             console.error(`Login attempt failed: Invalid password - ${email}`);
             throw new common_1.UnauthorizedException("Invalid credentials");
         }
-        
         const _a = user.toObject(), { password: _password } = _a, result = __rest(_a, ["password"]);
         return result;
     }
     async login(loginDto) {
         const user = await this.validateUser(loginDto.email, loginDto.password);
         const payload = { email: user.email, sub: user._id };
+        const refreshPayload = { sub: user._id, tokenType: "refresh" };
         return {
-            access_token: this.jwtService.sign(payload),
+            access_token: this.jwtService.sign(payload, {
+                secret: JWT_SECRET,
+                expiresIn: "1h",
+            }),
+            refresh_token: this.jwtService.sign(refreshPayload, {
+                secret: JWT_SECRET,
+                expiresIn: "7d",
+            }),
             user: {
                 id: user._id,
                 email: user.email,
@@ -64,7 +72,6 @@ let AuthService = class AuthService {
         };
     }
     async validateToken(payload) {
-       
         const user = await this.userModel.findById(payload.sub).exec();
         if (!user) {
             console.error("validateToken - user not found for ID:", payload.sub);
@@ -74,8 +81,37 @@ let AuthService = class AuthService {
             console.error("validateToken - user inactive:", user.email);
             throw new common_1.UnauthorizedException("User is inactive");
         }
-       
         return user;
+    }
+    async refreshToken(refreshToken) {
+        try {
+            const payload = this.jwtService.verify(refreshToken, {
+                secret: JWT_SECRET,
+            });
+            if (payload.tokenType !== "refresh") {
+                throw new common_1.UnauthorizedException("Invalid refresh token");
+            }
+            const user = await this.userModel.findById(payload.sub).exec();
+            if (!user || !user.isActive) {
+                throw new common_1.UnauthorizedException("User not found or inactive");
+            }
+            const newPayload = { email: user.email, sub: user._id };
+            const newRefreshPayload = { sub: user._id, tokenType: "refresh" };
+            return {
+                access_token: this.jwtService.sign(newPayload, {
+                    secret: JWT_SECRET,
+                    expiresIn: "1h",
+                }),
+                refresh_token: this.jwtService.sign(newRefreshPayload, {
+                    secret: JWT_SECRET,
+                    expiresIn: "7d",
+                }),
+            };
+        }
+        catch (error) {
+            console.error("Refresh token error:", error);
+            throw new common_1.UnauthorizedException("Invalid refresh token");
+        }
     }
 };
 exports.AuthService = AuthService;

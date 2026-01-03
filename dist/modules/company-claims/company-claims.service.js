@@ -76,10 +76,9 @@ let CompanyClaimsService = class CompanyClaimsService {
         return savedClaim;
     }
     async findAll(companyId, page = 1, limit = 10, timePeriod = "all", searchQuery) {
-       
         const matchConditions = {};
         if (companyId) {
-            matchConditions.companyId = new mongoose_2.Types.ObjectId(companyId);
+            matchConditions.companyId = companyId;
         }
         const dateFilter = {};
         const now = new Date();
@@ -122,13 +121,43 @@ let CompanyClaimsService = class CompanyClaimsService {
                 { status: searchRegex },
             ];
         }
-        const pipeline = [
+        const basePipeline = [
             { $match: matchConditions },
+            { $sort: { createdAt: -1 } },
+            { $project: { _id: 1 } },
+        ];
+        const totalCountResult = await this.companyClaimModel.aggregate([
+            ...basePipeline,
+            { $count: "total" },
+        ]);
+        const totalItems = totalCountResult.length > 0 ? totalCountResult[0].total : 0;
+        const totalPages = Math.ceil(totalItems / limit);
+        const paginatedIdsResult = await this.companyClaimModel.aggregate([
+            ...basePipeline,
+            { $skip: (page - 1) * limit },
+            { $limit: limit },
+            { $project: { _id: 1 } },
+        ]);
+        const claimIds = paginatedIdsResult.map((item) => item._id);
+        const pipeline = [
+            { $match: { _id: { $in: claimIds } } },
+            { $sort: { createdAt: -1 } },
             {
                 $lookup: {
                     from: "companies",
-                    localField: "companyId",
-                    foreignField: "_id",
+                    let: { companyId: "$companyId" },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $or: [
+                                        { $eq: ["$_id", "$$companyId"] },
+                                        { $eq: ["$_id", { $toObjectId: "$$companyId" }] },
+                                    ],
+                                },
+                            },
+                        },
+                    ],
                     as: "companyInfo",
                 },
             },
@@ -160,43 +189,17 @@ let CompanyClaimsService = class CompanyClaimsService {
                     as: "productInfo",
                 },
             },
-            { $sort: { createdAt: -1 } },
         ];
-        const totalCountResult = await this.companyClaimModel.aggregate([
-            ...pipeline,
-            { $count: "total" },
-        ]);
-        const totalItems = totalCountResult.length > 0 ? totalCountResult[0].total : 0;
-        const totalPages = Math.ceil(totalItems / limit);
-        pipeline.push({ $skip: (page - 1) * limit }, { $limit: limit }, {
+        pipeline.push({
             $project: {
                 _id: 1,
                 claimNumber: 1,
-                companyId: "$companyInfo",
-                paymentId: "$paymentInfo",
-                items: {
-                    $map: {
-                        input: "$items",
-                        as: "item",
-                        in: {
-                            productId: {
-                                $arrayElemAt: [
-                                    "$productInfo",
-                                    { $indexOfArray: ["$productInfo._id", "$$item.productId"] },
-                                ],
-                            },
-                            quantity: "$$item.quantity",
-                            dealerPrice: "$$item.dealerPrice",
-                            commissionRate: "$$item.commissionRate",
-                            srPayment: "$$item.srPayment",
-                            commissionAmount: "$$item.commissionAmount",
-                            netFromCompany: "$$item.netFromCompany",
-                        },
-                    },
-                },
+                companyId: 1,
+                paymentId: 1,
+                issueId: 1,
+                items: 1,
                 totalDealerPrice: 1,
-                totalCommission: 1,
-                totalClaim: 1,
+                totalCompanyClaim: 1,
                 totalSRPayment: 1,
                 netFromCompany: 1,
                 status: 1,
@@ -204,11 +207,54 @@ let CompanyClaimsService = class CompanyClaimsService {
                 createdAt: 1,
                 updatedAt: 1,
                 paidDate: 1,
+                companyInfo: 1,
+                paymentInfo: 1,
+                productInfo: 1,
             },
         });
         const claims = await this.companyClaimModel.aggregate(pipeline);
+        const allClaimsStats = await this.companyClaimModel.aggregate([
+            { $match: matchConditions },
+            {
+                $group: {
+                    _id: null,
+                    totalClaims: { $sum: 1 },
+                    totalClaimAmount: { $sum: "$totalCompanyClaim" },
+                    totalPaidAmount: {
+                        $sum: {
+                            $cond: [{ $eq: ["$status", "paid"] }, "$totalCompanyClaim", 0],
+                        },
+                    },
+                    totalPendingAmount: {
+                        $sum: {
+                            $cond: [{ $eq: ["$status", "pending"] }, "$totalCompanyClaim", 0],
+                        },
+                    },
+                    paidClaimsCount: {
+                        $sum: {
+                            $cond: [{ $eq: ["$status", "paid"] }, 1, 0],
+                        },
+                    },
+                    pendingClaimsCount: {
+                        $sum: {
+                            $cond: [{ $eq: ["$status", "pending"] }, 1, 0],
+                        },
+                    },
+                },
+            },
+        ]);
+        const stats = allClaimsStats.length > 0
+            ? allClaimsStats[0]
+            : {
+                totalClaims: 0,
+                totalClaimAmount: 0,
+                totalPaidAmount: 0,
+                totalPendingAmount: 0,
+                paidClaimsCount: 0,
+                pendingClaimsCount: 0,
+            };
         const result = {
-            claims: claims,
+            claims,
             pagination: {
                 currentPage: page,
                 totalPages: totalPages,
@@ -217,26 +263,52 @@ let CompanyClaimsService = class CompanyClaimsService {
                 hasNextPage: page < totalPages,
                 hasPrevPage: page > 1,
             },
+            totals: {
+                totalClaims: stats.totalClaims,
+                totalClaimAmount: stats.totalClaimAmount,
+                totalPaidAmount: stats.totalPaidAmount,
+                totalPendingAmount: stats.totalPendingAmount,
+                paidClaimsCount: stats.paidClaimsCount,
+                pendingClaimsCount: stats.pendingClaimsCount,
+            },
         };
-        
         return result;
     }
     async findOne(id) {
-        const claim = await this.companyClaimModel
-            .findById(id)
-            .populate("companyId", "name code")
-            .populate("paymentId", "receiptNumber")
-            .populate("items.productId", "name sku")
-            .exec();
+        let claim;
+        if (mongoose_2.Types.ObjectId.isValid(id)) {
+            claim = await this.companyClaimModel
+                .findById(id)
+                .populate("companyId", "name code")
+                .populate("paymentId", "receiptNumber")
+                .populate("items.productId", "name sku")
+                .exec();
+        }
+        else {
+            claim = await this.companyClaimModel
+                .findOne({ claimNumber: id })
+                .populate("companyId", "name code")
+                .populate("paymentId", "receiptNumber")
+                .populate("items.productId", "name sku")
+                .exec();
+        }
         if (!claim) {
             throw new common_1.NotFoundException("Company Claim not found");
         }
         return claim;
     }
     async update(id, updateData) {
-        const updated = await this.companyClaimModel
-            .findByIdAndUpdate(id, { $set: updateData }, { new: true })
-            .exec();
+        let updated;
+        if (mongoose_2.Types.ObjectId.isValid(id)) {
+            updated = await this.companyClaimModel
+                .findByIdAndUpdate(id, { $set: updateData }, { new: true })
+                .exec();
+        }
+        else {
+            updated = await this.companyClaimModel
+                .findOneAndUpdate({ claimNumber: id }, { $set: updateData }, { new: true })
+                .exec();
+        }
         if (!updated) {
             throw new common_1.NotFoundException("Company Claim not found");
         }
@@ -255,9 +327,16 @@ let CompanyClaimsService = class CompanyClaimsService {
             if (status === company_claim_schema_1.ClaimStatus.PAID && paidDate) {
                 updateData.paidDate = paidDate;
             }
-            updated = await this.companyClaimModel
-                .findByIdAndUpdate(id, { $set: updateData }, { new: true })
-                .exec();
+            if (mongoose_2.Types.ObjectId.isValid(id)) {
+                updated = await this.companyClaimModel
+                    .findByIdAndUpdate(id, { $set: updateData }, { new: true })
+                    .exec();
+            }
+            else {
+                updated = await this.companyClaimModel
+                    .findOneAndUpdate({ claimNumber: id }, { $set: updateData }, { new: true })
+                    .exec();
+            }
             if (!updated) {
                 throw new common_1.NotFoundException("Company Claim not found");
             }
@@ -320,12 +399,9 @@ let CompanyClaimsService = class CompanyClaimsService {
                         const newReceived = oldReceived + updated.totalCompanyClaim;
                         payment.receivedAmount = newReceived;
                         const savedPayment = await payment.save();
-                        
                         const verifyPayment = await this.srPaymentModel
                             .findById(paymentIdToUse)
                             .exec();
-                        
-                        
                     }
                     else {
                         console.error("❌ Payment not found for update:", paymentIdToUse);
@@ -338,9 +414,7 @@ let CompanyClaimsService = class CompanyClaimsService {
         }
         setTimeout(async () => {
             try {
-                
                 await this.notificationsGateway.emitClaimsDataRefresh();
-               
             }
             catch (error) {
                 console.error("❌ Failed to emit claims data refresh:", error);

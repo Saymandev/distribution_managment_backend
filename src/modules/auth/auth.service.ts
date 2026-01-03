@@ -6,6 +6,9 @@ import { Model } from "mongoose";
 import { User, UserDocument } from "../../database/schemas/user.schema";
 import { LoginDto } from "./dto/login.dto";
 
+const JWT_SECRET =
+  process.env.JWT_SECRET || "your-secret-key-change-in-production";
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -35,8 +38,17 @@ export class AuthService {
   async login(loginDto: LoginDto) {
     const user = await this.validateUser(loginDto.email, loginDto.password);
     const payload = { email: user.email, sub: user._id };
+    const refreshPayload = { sub: user._id, tokenType: "refresh" };
+
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: this.jwtService.sign(payload, {
+        secret: JWT_SECRET,
+        expiresIn: "1h",
+      }),
+      refresh_token: this.jwtService.sign(refreshPayload, {
+        secret: JWT_SECRET,
+        expiresIn: "7d",
+      }),
       user: {
         id: user._id,
         email: user.email,
@@ -58,5 +70,42 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  async refreshToken(refreshToken: string) {
+    try {
+      // Verify refresh token with explicit secret
+      const payload = this.jwtService.verify(refreshToken, {
+        secret: JWT_SECRET,
+      });
+
+      // Check if it's a refresh token
+      if (payload.tokenType !== "refresh") {
+        throw new UnauthorizedException("Invalid refresh token");
+      }
+
+      const user = await this.userModel.findById(payload.sub).exec();
+      if (!user || !user.isActive) {
+        throw new UnauthorizedException("User not found or inactive");
+      }
+
+      // Generate new tokens with explicit options
+      const newPayload = { email: user.email, sub: user._id };
+      const newRefreshPayload = { sub: user._id, tokenType: "refresh" };
+
+      return {
+        access_token: this.jwtService.sign(newPayload, {
+          secret: JWT_SECRET,
+          expiresIn: "1h",
+        }),
+        refresh_token: this.jwtService.sign(newRefreshPayload, {
+          secret: JWT_SECRET,
+          expiresIn: "7d",
+        }),
+      };
+    } catch (error) {
+      console.error("Refresh token error:", error);
+      throw new UnauthorizedException("Invalid refresh token");
+    }
   }
 }

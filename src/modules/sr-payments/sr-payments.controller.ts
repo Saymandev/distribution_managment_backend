@@ -25,11 +25,18 @@ export class SRPaymentsController {
   }
 
   @Get()
-  findAll(@Query("srId") srId?: string) {
+  findAll(
+    @Query("srId") srId?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ) {
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 10;
+
     if (srId) {
-      return this.srPaymentsService.findBySR(srId);
+      return this.srPaymentsService.findBySR(srId, pageNum, limitNum);
     }
-    return this.srPaymentsService.findAll();
+    return this.srPaymentsService.findAll(pageNum, limitNum);
   }
 
   @Get("optimized")

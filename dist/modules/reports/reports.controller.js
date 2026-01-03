@@ -21,7 +21,6 @@ let ReportsController = class ReportsController {
         this.reportsService = reportsService;
     }
     getDashboard(req, companyId) {
-        console.log("Dashboard request - user:", req.user);
         return this.reportsService.getDashboard(companyId);
     }
     getProfitLoss(companyId, startDate, endDate) {
@@ -58,10 +57,8 @@ let ReportsController = class ReportsController {
         return this.reportsService.getFinancialOverview(companyId);
     }
     getMonthlyReport(companyId, startDate, endDate) {
-        console.log(`📊 Monthly report controller: companyId="${companyId}", startDate="${startDate}", endDate="${endDate}"`);
         const start = startDate ? this.parseDateString(startDate, true) : undefined;
         const end = endDate ? this.parseDateString(endDate, false) : undefined;
-        console.log(`📊 Calling service with companyId="${companyId}"`);
         return this.reportsService.getMonthlyReport(companyId, start, end);
     }
     parseDateString(dateString, isStart) {

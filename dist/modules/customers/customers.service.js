@@ -72,13 +72,8 @@ let CustomersService = class CustomersService {
         }
     }
     async getCustomerSummaries(companyId, page = 1, limit = 10, searchQuery = "", startDate, endDate) {
-       
-      
         const paymentMatch = {};
-        
         if (companyId) {
-            
-            
             const companyProducts = await this.productModel
                 .find({
                 $or: [
@@ -89,15 +84,11 @@ let CustomersService = class CustomersService {
             })
                 .select("_id name")
                 .exec();
-            
             const productIds = companyProducts.map((p) => p._id.toString());
-          
             if (productIds.length > 0) {
                 paymentMatch["items.productId"] = { $in: productIds };
-                
             }
             else {
-                
                 return {
                     customers: [],
                     pagination: {
@@ -112,16 +103,12 @@ let CustomersService = class CustomersService {
             }
         }
         else {
-           
         }
-        
         let payments = await this.srPaymentModel
             .find(paymentMatch)
             .sort({ paymentDate: -1 })
             .exec();
-        
         payments = payments.filter((payment) => { var _a; return (_a = payment.customerInfo) === null || _a === void 0 ? void 0 : _a.name; });
-       
         const customerMap = new Map();
         payments.forEach((payment) => {
             var _a;
@@ -180,7 +167,6 @@ let CustomersService = class CustomersService {
         };
     }
     async searchCustomers(query, limit = 5) {
-      
         const customers = await this.customerModel
             .find({
             $or: [

@@ -109,7 +109,8 @@ export class CompanyClaimsService {
     const matchConditions: any = {};
 
     if (companyId) {
-      matchConditions.companyId = new Types.ObjectId(companyId);
+      // Use $eq to match the companyId field regardless of whether it's an ObjectId or string
+      matchConditions.companyId = companyId;
     }
 
     const dateFilter: any = {};
@@ -157,13 +158,53 @@ export class CompanyClaimsService {
       ];
     }
 
-    const pipeline: any[] = [
+    // First, get the matching claim IDs with sorting (before lookups)
+    const basePipeline = [
       { $match: matchConditions },
+      { $sort: { createdAt: -1 as 1 } },
+      { $project: { _id: 1 } }, // Only keep IDs for efficient pagination
+    ];
+
+    // Get total count
+    const totalCountResult = await this.companyClaimModel.aggregate([
+      ...basePipeline,
+      { $count: "total" },
+    ]);
+
+    const totalItems =
+      totalCountResult.length > 0 ? totalCountResult[0].total : 0;
+    const totalPages = Math.ceil(totalItems / limit);
+
+    // Get paginated claim IDs
+    const paginatedIdsResult = await this.companyClaimModel.aggregate([
+      ...basePipeline,
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+      { $project: { _id: 1 } },
+    ]);
+
+    const claimIds = paginatedIdsResult.map((item) => item._id);
+
+    // Now do lookups on the paginated claims
+    const pipeline: any[] = [
+      { $match: { _id: { $in: claimIds } } },
+      { $sort: { createdAt: -1 } }, // Maintain sort order
       {
         $lookup: {
           from: "companies",
-          localField: "companyId",
-          foreignField: "_id",
+          let: { companyId: "$companyId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $or: [
+                    { $eq: ["$_id", "$$companyId"] },
+                    { $eq: ["$_id", { $toObjectId: "$$companyId" }] },
+                  ],
+                },
+              },
+            },
+          ],
           as: "companyInfo",
         },
       },
@@ -195,67 +236,80 @@ export class CompanyClaimsService {
           as: "productInfo",
         },
       },
-      { $sort: { createdAt: -1 } },
     ];
 
-    // Get total count of matching claims before pagination
-    const totalCountResult = await this.companyClaimModel.aggregate([
-      ...pipeline,
-      { $count: "total" },
-    ]);
-
-    const totalItems =
-      totalCountResult.length > 0 ? totalCountResult[0].total : 0;
-    const totalPages = Math.ceil(totalItems / limit);
-
-    // Add pagination stages to the pipeline
-    pipeline.push(
-      { $skip: (page - 1) * limit },
-      { $limit: limit },
-      {
-        $project: {
-          _id: 1,
-          claimNumber: 1,
-          companyId: "$companyInfo",
-          paymentId: "$paymentInfo",
-          items: {
-            $map: {
-              input: "$items",
-              as: "item",
-              in: {
-                productId: {
-                  $arrayElemAt: [
-                    "$productInfo",
-                    { $indexOfArray: ["$productInfo._id", "$$item.productId"] },
-                  ],
-                },
-                quantity: "$$item.quantity",
-                dealerPrice: "$$item.dealerPrice",
-                commissionRate: "$$item.commissionRate",
-                srPayment: "$$item.srPayment",
-                commissionAmount: "$$item.commissionAmount",
-                netFromCompany: "$$item.netFromCompany",
-              },
-            },
-          },
-          totalDealerPrice: 1,
-          totalCommission: 1,
-          totalClaim: 1,
-          totalSRPayment: 1,
-          netFromCompany: 1,
-          status: 1,
-          notes: 1,
-          createdAt: 1,
-          updatedAt: 1,
-          paidDate: 1,
-        },
+    // Add final projection to include all necessary fields
+    pipeline.push({
+      $project: {
+        _id: 1,
+        claimNumber: 1,
+        companyId: 1,
+        paymentId: 1,
+        issueId: 1,
+        items: 1,
+        totalDealerPrice: 1,
+        totalCompanyClaim: 1,
+        totalSRPayment: 1,
+        netFromCompany: 1,
+        status: 1,
+        notes: 1,
+        createdAt: 1,
+        updatedAt: 1,
+        paidDate: 1,
+        companyInfo: 1,
+        paymentInfo: 1,
+        productInfo: 1,
       },
-    );
+    });
 
     const claims = await this.companyClaimModel.aggregate(pipeline);
 
+    // Calculate totals for all claims (not just current page)
+    const allClaimsStats = await this.companyClaimModel.aggregate([
+      { $match: matchConditions }, // Same match conditions for consistency
+      {
+        $group: {
+          _id: null,
+          totalClaims: { $sum: 1 },
+          totalClaimAmount: { $sum: "$totalCompanyClaim" },
+          totalPaidAmount: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "paid"] }, "$totalCompanyClaim", 0],
+            },
+          },
+          totalPendingAmount: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "pending"] }, "$totalCompanyClaim", 0],
+            },
+          },
+          paidClaimsCount: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "paid"] }, 1, 0],
+            },
+          },
+          pendingClaimsCount: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "pending"] }, 1, 0],
+            },
+          },
+        },
+      },
+    ]);
+
+    const stats =
+      allClaimsStats.length > 0
+        ? allClaimsStats[0]
+        : {
+            totalClaims: 0,
+            totalClaimAmount: 0,
+            totalPaidAmount: 0,
+            totalPendingAmount: 0,
+            paidClaimsCount: 0,
+            pendingClaimsCount: 0,
+          };
+
     const result = {
-      claims: claims,
+      claims,
       pagination: {
         currentPage: page,
         totalPages: totalPages,
@@ -264,18 +318,40 @@ export class CompanyClaimsService {
         hasNextPage: page < totalPages,
         hasPrevPage: page > 1,
       },
+      totals: {
+        totalClaims: stats.totalClaims,
+        totalClaimAmount: stats.totalClaimAmount,
+        totalPaidAmount: stats.totalPaidAmount,
+        totalPendingAmount: stats.totalPendingAmount,
+        paidClaimsCount: stats.paidClaimsCount,
+        pendingClaimsCount: stats.pendingClaimsCount,
+      },
     };
 
     return result;
   }
 
   async findOne(id: string): Promise<CompanyClaim> {
-    const claim = await this.companyClaimModel
-      .findById(id)
-      .populate("companyId", "name code") // Populate for frontend display
-      .populate("paymentId", "receiptNumber") // Populate for frontend display
-      .populate("items.productId", "name sku") // Populate for frontend display
-      .exec();
+    let claim;
+
+    // Check if id is a valid ObjectId
+    if (Types.ObjectId.isValid(id)) {
+      claim = await this.companyClaimModel
+        .findById(id)
+        .populate("companyId", "name code") // Populate for frontend display
+        .populate("paymentId", "receiptNumber") // Populate for frontend display
+        .populate("items.productId", "name sku") // Populate for frontend display
+        .exec();
+    } else {
+      // Assume it's a claim number
+      claim = await this.companyClaimModel
+        .findOne({ claimNumber: id })
+        .populate("companyId", "name code") // Populate for frontend display
+        .populate("paymentId", "receiptNumber") // Populate for frontend display
+        .populate("items.productId", "name sku") // Populate for frontend display
+        .exec();
+    }
+
     if (!claim) {
       throw new NotFoundException("Company Claim not found");
     }
@@ -283,9 +359,24 @@ export class CompanyClaimsService {
   }
 
   async update(id: string, updateData: any): Promise<CompanyClaim> {
-    const updated = await this.companyClaimModel
-      .findByIdAndUpdate(id, { $set: updateData }, { new: true })
-      .exec();
+    let updated;
+
+    // Check if id is a valid ObjectId
+    if (Types.ObjectId.isValid(id)) {
+      updated = await this.companyClaimModel
+        .findByIdAndUpdate(id, { $set: updateData }, { new: true })
+        .exec();
+    } else {
+      // Assume it's a claim number
+      updated = await this.companyClaimModel
+        .findOneAndUpdate(
+          { claimNumber: id },
+          { $set: updateData },
+          { new: true },
+        )
+        .exec();
+    }
+
     if (!updated) {
       throw new NotFoundException("Company Claim not found");
     }
@@ -313,9 +404,21 @@ export class CompanyClaimsService {
         updateData.paidDate = paidDate;
       }
 
-      updated = await this.companyClaimModel
-        .findByIdAndUpdate(id, { $set: updateData }, { new: true })
-        .exec();
+      // Check if id is a valid ObjectId
+      if (Types.ObjectId.isValid(id)) {
+        updated = await this.companyClaimModel
+          .findByIdAndUpdate(id, { $set: updateData }, { new: true })
+          .exec();
+      } else {
+        // Assume it's a claim number
+        updated = await this.companyClaimModel
+          .findOneAndUpdate(
+            { claimNumber: id },
+            { $set: updateData },
+            { new: true },
+          )
+          .exec();
+      }
       if (!updated) {
         throw new NotFoundException("Company Claim not found");
       }

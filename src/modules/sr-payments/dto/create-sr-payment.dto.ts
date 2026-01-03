@@ -76,4 +76,28 @@ export class CreateSRPaymentDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ReturnItemDto)
+  @IsOptional()
+  returnItems?: ReturnItemDto[];
+}
+
+export class ReturnItemDto {
+  @IsMongoId()
+  @IsNotEmpty()
+  productId: string;
+
+  @IsNumber()
+  @Min(0)
+  damagedQuantity: number;
+
+  @IsNumber()
+  @Min(0)
+  customerReturnQuantity: number;
+
+  @IsString()
+  @IsOptional()
+  reason?: string;
 }

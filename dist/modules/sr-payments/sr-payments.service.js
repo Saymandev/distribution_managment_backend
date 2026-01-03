@@ -23,8 +23,9 @@ const product_schema_1 = require("../../database/schemas/product.schema");
 const salesrep_schema_1 = require("../../database/schemas/salesrep.schema");
 const sr_issue_schema_1 = require("../../database/schemas/sr-issue.schema");
 const sr_payment_schema_1 = require("../../database/schemas/sr-payment.schema");
+const product_returns_service_1 = require("../product-returns/product-returns.service");
 let SRPaymentsService = class SRPaymentsService {
-    constructor(srPaymentModel, salesRepModel, srIssueModel, productModel, companyModel, companyClaimModel, productReturnModel) {
+    constructor(srPaymentModel, salesRepModel, srIssueModel, productModel, companyModel, companyClaimModel, productReturnModel, productReturnsService) {
         this.srPaymentModel = srPaymentModel;
         this.salesRepModel = salesRepModel;
         this.srIssueModel = srIssueModel;
@@ -32,6 +33,7 @@ let SRPaymentsService = class SRPaymentsService {
         this.companyModel = companyModel;
         this.companyClaimModel = companyClaimModel;
         this.productReturnModel = productReturnModel;
+        this.productReturnsService = productReturnsService;
     }
     async generateReceiptNumber() {
         const lastPayment = await this.srPaymentModel
@@ -138,22 +140,29 @@ let SRPaymentsService = class SRPaymentsService {
             if (!product) {
                 throw new common_1.NotFoundException(`Product ${productId} not found`);
             }
+            const dealerPriceTotal = paymentItem.quantity * paymentItem.dealerPrice;
             const discount = paymentItem.quantity *
                 (paymentItem.dealerPrice - paymentItem.tradePrice);
+            const commissionAmount = dealerPriceTotal * (company.commissionRate / 100);
+            const srPayment = paymentItem.quantity * paymentItem.tradePrice;
+            const netFromCompany = dealerPriceTotal + commissionAmount - srPayment;
             return {
                 productId,
                 quantity: paymentItem.quantity,
                 dealerPrice: paymentItem.dealerPrice,
                 tradePrice: paymentItem.tradePrice,
                 discount,
-                srPayment: paymentItem.quantity * paymentItem.tradePrice,
-                netFromCompany: discount,
+                commissionRate: company.commissionRate,
+                commissionAmount,
+                srPayment,
+                netFromCompany,
             };
         });
         const totalDealerPrice = claimItems.reduce((sum, item) => sum + item.quantity * item.dealerPrice, 0);
-        const totalCompanyClaim = payment.companyClaim || 0;
+        const totalCommission = claimItems.reduce((sum, item) => sum + item.commissionAmount, 0);
         const totalSRPayment = claimItems.reduce((sum, item) => sum + item.srPayment, 0);
-        const netFromCompany = totalCompanyClaim;
+        const totalCompanyClaim = totalDealerPrice + totalCommission;
+        const netFromCompany = totalCompanyClaim - totalSRPayment;
         const claimNumber = await this.generateClaimNumber();
         const claimIssueId = typeof payment.issueId === "string"
             ? payment.issueId
@@ -246,22 +255,29 @@ let SRPaymentsService = class SRPaymentsService {
             if (!product) {
                 throw new common_1.NotFoundException(`Product ${productId} not found`);
             }
+            const dealerPriceTotal = paymentItem.quantity * paymentItem.dealerPrice;
             const discount = paymentItem.quantity *
                 (paymentItem.dealerPrice - paymentItem.tradePrice);
+            const commissionAmount = dealerPriceTotal * (company.commissionRate / 100);
+            const srPayment = paymentItem.quantity * paymentItem.tradePrice;
+            const netFromCompany = dealerPriceTotal + commissionAmount - srPayment;
             return {
                 productId,
                 quantity: paymentItem.quantity,
                 dealerPrice: paymentItem.dealerPrice,
                 tradePrice: paymentItem.tradePrice,
                 discount,
-                srPayment: paymentItem.quantity * paymentItem.tradePrice,
-                netFromCompany: discount,
+                commissionRate: company.commissionRate,
+                commissionAmount,
+                srPayment,
+                netFromCompany,
             };
         });
         const totalDealerPrice = claimItems.reduce((sum, item) => sum + item.quantity * item.dealerPrice, 0);
-        const totalCompanyClaim = payment.companyClaim || 0;
+        const totalCommission = claimItems.reduce((sum, item) => sum + item.commissionAmount, 0);
         const totalSRPayment = claimItems.reduce((sum, item) => sum + item.srPayment, 0);
-        const netFromCompany = totalCompanyClaim;
+        const totalCompanyClaim = totalDealerPrice + totalCommission;
+        const netFromCompany = totalCompanyClaim - totalSRPayment;
         const finalIssueId = typeof payment.issueId === "string"
             ? payment.issueId
             : String(((_b = payment.issueId) === null || _b === void 0 ? void 0 : _b._id) || payment.issueId);
@@ -270,25 +286,75 @@ let SRPaymentsService = class SRPaymentsService {
         existingClaim.totalCompanyClaim = totalCompanyClaim;
         existingClaim.totalSRPayment = totalSRPayment;
         existingClaim.netFromCompany = netFromCompany;
+        existingClaim.companyId = companyId;
         existingClaim.paymentId = String(payment._id);
         existingClaim.issueId = finalIssueId;
         existingClaim.notes = `Auto-updated from payment ${payment.receiptNumber}`;
         return existingClaim.save();
     }
     async create(dto) {
+        let damageReturnId = null;
+        let customerReturnId = null;
+        if (dto.returnItems && dto.returnItems.length > 0 && dto.issueId) {
+            try {
+                const damagedItems = dto.returnItems
+                    .filter((item) => item.damagedQuantity > 0)
+                    .map((item) => ({
+                    productId: item.productId,
+                    quantity: item.damagedQuantity,
+                    reason: item.reason || "damage product",
+                }));
+                const customerReturnItems = dto.returnItems
+                    .filter((item) => item.customerReturnQuantity > 0)
+                    .map((item) => ({
+                    productId: item.productId,
+                    quantity: item.customerReturnQuantity,
+                    reason: item.reason || undefined,
+                }));
+                if (damagedItems.length > 0) {
+                    const totalDamagedQty = damagedItems.reduce((sum, item) => sum + item.quantity, 0);
+                    const damageReturnDto = {
+                        returnNumber: `DAMAGE-RET-${Date.now()}`,
+                        returnType: product_return_schema_1.ReturnType.DAMAGE_RETURN,
+                        srId: dto.srId,
+                        issueId: dto.issueId,
+                        items: damagedItems,
+                        notes: `Damage return processed with payment. Total ${totalDamagedQty} damaged product(s).`,
+                    };
+                    const createdDamageReturn = await this.productReturnsService.create(damageReturnDto);
+                    damageReturnId = createdDamageReturn._id.toString();
+                }
+                if (customerReturnItems.length > 0) {
+                    const totalCustomerReturnQty = customerReturnItems.reduce((sum, item) => sum + item.quantity, 0);
+                    const customerReturnDto = {
+                        returnNumber: `CUSTOMER-RET-${Date.now() + 1}`,
+                        returnType: product_return_schema_1.ReturnType.CUSTOMER_RETURN,
+                        srId: dto.srId,
+                        issueId: dto.issueId,
+                        items: customerReturnItems,
+                        notes: `Customer return processed with payment. Total ${totalCustomerReturnQty} product(s) returned.`,
+                    };
+                    const createdCustomerReturn = await this.productReturnsService.create(customerReturnDto);
+                    customerReturnId = createdCustomerReturn._id.toString();
+                }
+            }
+            catch (error) {
+                console.error("Return processing failed in payment creation:", error);
+            }
+        }
         if (dto.receiptNumber === null ||
             (dto.receiptNumber !== undefined && dto.receiptNumber.trim() === "")) {
             dto.receiptNumber = undefined;
         }
         if (dto.items && dto.items.length > 0) {
-            const totalExpected = dto.items.reduce((sum, item) => sum + item.quantity * item.dealerPrice, 0);
+            const totalExpected = dto.items.reduce((sum, item) => sum + item.quantity * item.tradePrice, 0);
             const totalReceived = dto.items.reduce((sum, item) => sum + item.quantity * item.tradePrice, 0);
             const items = dto.items.map((item) => ({
                 productId: item.productId,
                 quantity: item.quantity,
                 dealerPrice: item.dealerPrice,
                 tradePrice: item.tradePrice,
-                expected: item.quantity * item.dealerPrice,
+                expected: item.quantity * item.tradePrice,
                 received: item.quantity * item.tradePrice,
             }));
         }
@@ -320,7 +386,6 @@ let SRPaymentsService = class SRPaymentsService {
                     };
                 });
                 existingPayment.items = processedItems;
-                existingPayment.totalExpected = totalExpectedFromDto;
                 existingPayment.totalReceived =
                     (existingPayment.totalReceived || 0) + (dto.receivedAmount || 0);
                 existingPayment.totalDiscount = totalDiscountFromDto;
@@ -416,22 +481,35 @@ let SRPaymentsService = class SRPaymentsService {
             companyClaim: dto.companyClaim || 0,
             customerInfo: dto.customerInfo,
             customerDue: dto.customerDue || 0,
-            notes: dto.notes,
+            notes: dto.notes +
+                (damageReturnId || customerReturnId ? " (Includes returns)" : ""),
         });
         const savedPayment = await payment.save();
-        if (savedPayment.companyClaim && savedPayment.companyClaim > 0) {
-            try {
-                await this.createClaimFromPayment(savedPayment);
-            }
-            catch (error) {
-                console.error("Failed to auto-create claim for payment:", error);
-            }
+        try {
+            await this.createClaimFromPayment(savedPayment);
+        }
+        catch (error) {
+            console.error("Failed to auto-create claim for payment:", error);
         }
         return savedPayment;
     }
-    async findAll() {
+    async findAll(page = 1, limit = 10) {
         const { payments } = await this.getOptimized();
-        return payments;
+        const totalItems = payments.length;
+        const totalPages = Math.ceil(totalItems / limit);
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        return {
+            payments: payments.slice(startIndex, endIndex),
+            pagination: {
+                currentPage: page,
+                totalPages,
+                totalItems,
+                itemsPerPage: limit,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1,
+            },
+        };
     }
     async getOptimized(companyId) {
         var _a;
@@ -470,7 +548,6 @@ let SRPaymentsService = class SRPaymentsService {
         let filteredPayments = payments;
         let filteredReturns = returns;
         let filteredClaims = claims;
-        console.log("[SRPaymentsService] getOptimized - filteredClaims BEFORE issueClaimMap population:", filteredClaims);
         const getCompanyIdString = (obj) => {
             if (!obj || !obj.companyId)
                 return undefined;
@@ -524,20 +601,42 @@ let SRPaymentsService = class SRPaymentsService {
                 (issueReturnMap[issueId] || 0) + totalReturnValue;
         });
         const issueClaimMap = {};
+        const issueCustomerDueMap = {};
         filteredPayments.forEach((payment) => {
             var _a;
             const issueId = typeof payment.issueId === "string"
                 ? payment.issueId
                 : String(((_a = payment.issueId) === null || _a === void 0 ? void 0 : _a._id) || payment.issueId);
-            issueClaimMap[issueId] =
-                (issueClaimMap[issueId] || 0) + (payment.companyClaim || 0);
+            if (payment.customerDue && payment.customerDue > 0) {
+                issueCustomerDueMap[issueId] =
+                    (issueCustomerDueMap[issueId] || 0) + payment.customerDue;
+            }
+            if (payment.companyClaim && payment.companyClaim > 0) {
+                const relatedClaim = filteredClaims.find((claim) => {
+                    var _a;
+                    const claimPaymentId = typeof claim.paymentId === "string"
+                        ? claim.paymentId
+                        : String(((_a = claim.paymentId) === null || _a === void 0 ? void 0 : _a._id) || claim.paymentId);
+                    const paymentId = String(payment._id);
+                    return claimPaymentId === paymentId && claim.status !== "paid";
+                });
+                if (relatedClaim) {
+                    issueClaimMap[issueId] =
+                        (issueClaimMap[issueId] || 0) + payment.companyClaim;
+                }
+            }
         });
         for (const issue of filteredIssues) {
             const issueIdString = String(issue._id);
             let adjustedTotalAmount = issue.totalAmount || 0;
             adjustedTotalAmount = Math.max(0, adjustedTotalAmount - (issueReturnMap[issueIdString] || 0));
             const receivedAmount = issueReceivedMap[issueIdString] || 0;
-            const due = Math.max(0, adjustedTotalAmount - receivedAmount);
+            const totalCompanyClaims = issueClaimMap[issueIdString] || 0;
+            const totalCustomerDues = issueCustomerDueMap[issueIdString] || 0;
+            const hasPaymentsWithDues = totalCustomerDues > 0 || totalCompanyClaims > 0;
+            const due = hasPaymentsWithDues
+                ? totalCustomerDues + totalCompanyClaims
+                : Math.max(0, adjustedTotalAmount - receivedAmount);
             dueAmounts[issueIdString] = {
                 totalAmount: adjustedTotalAmount,
                 receivedAmount,
@@ -575,8 +674,6 @@ let SRPaymentsService = class SRPaymentsService {
             const dateB = new Date(b.paymentDate || b.createdAt).getTime();
             return dateB - dateA;
         });
-        console.log("[SRPaymentsService] getOptimized - Final filteredPayments before return:", filteredPayments);
-        console.log("[SRPaymentsService] getOptimized - Final dueAmounts:", dueAmounts);
         return {
             payments: filteredPayments,
             issues: filteredIssues,
@@ -590,12 +687,23 @@ let SRPaymentsService = class SRPaymentsService {
     }
     async findOne(id) {
         var _a;
-        const payment = await this.srPaymentModel
-            .findById(id)
-            .populate("srId")
-            .populate("issueId", "issueNumber totalAmount")
-            .populate("items.productId")
-            .exec();
+        let payment;
+        if (id.startsWith("PAY-")) {
+            payment = await this.srPaymentModel
+                .findOne({ receiptNumber: id })
+                .populate("srId")
+                .populate("issueId", "issueNumber totalAmount")
+                .populate("items.productId")
+                .exec();
+        }
+        else {
+            payment = await this.srPaymentModel
+                .findById(id)
+                .populate("srId")
+                .populate("issueId", "issueNumber totalAmount")
+                .populate("items.productId")
+                .exec();
+        }
         if (!payment) {
             throw new common_1.NotFoundException("SR Payment not found");
         }
@@ -655,22 +763,47 @@ let SRPaymentsService = class SRPaymentsService {
         }
         return paymentObj;
     }
-    async findBySR(srId) {
+    async findBySR(srId, page = 1, limit = 10) {
         const { payments } = await this.getOptimized();
-        return payments.filter((p) => {
+        const filteredPayments = payments.filter((p) => {
             var _a;
             const pSrId = typeof p.srId === "string"
                 ? p.srId
                 : String(((_a = p.srId) === null || _a === void 0 ? void 0 : _a._id) || p.srId);
             return pSrId === srId;
         });
+        const totalReceived = filteredPayments.reduce((sum, payment) => sum + (payment.totalReceived || 0), 0);
+        const totalItems = filteredPayments.length;
+        const totalPages = Math.ceil(totalItems / limit);
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        return {
+            payments: filteredPayments.slice(startIndex, endIndex),
+            pagination: {
+                currentPage: page,
+                totalPages,
+                totalItems,
+                itemsPerPage: limit,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1,
+            },
+            totals: {
+                totalReceived,
+            },
+        };
     }
     async update(id, dto) {
         if (dto.receiptNumber === null ||
             (dto.receiptNumber !== undefined && dto.receiptNumber.trim() === "")) {
             dto.receiptNumber = undefined;
         }
-        const payment = await this.srPaymentModel.findById(id).exec();
+        let payment;
+        if (id.startsWith("PAY-")) {
+            payment = await this.srPaymentModel.findOne({ receiptNumber: id }).exec();
+        }
+        else {
+            payment = await this.srPaymentModel.findById(id).exec();
+        }
         if (!payment) {
             throw new common_1.NotFoundException("SR Payment not found");
         }
@@ -752,16 +885,23 @@ let SRPaymentsService = class SRPaymentsService {
         }
     }
     async remove(id) {
+        let payment;
+        if (id.startsWith("PAY-")) {
+            payment = await this.srPaymentModel.findOne({ receiptNumber: id }).exec();
+        }
+        else {
+            payment = await this.srPaymentModel.findById(id).exec();
+        }
+        if (!payment) {
+            throw new common_1.NotFoundException("SR Payment not found");
+        }
         const claim = await this.companyClaimModel
-            .findOne({ paymentId: id })
+            .findOne({ paymentId: payment._id })
             .exec();
         if (claim) {
             await this.companyClaimModel.findByIdAndDelete(claim._id).exec();
         }
-        const res = await this.srPaymentModel.findByIdAndDelete(id).exec();
-        if (!res) {
-            throw new common_1.NotFoundException("SR Payment not found");
-        }
+        await this.srPaymentModel.findByIdAndDelete(payment._id).exec();
     }
 };
 exports.SRPaymentsService = SRPaymentsService;
@@ -780,6 +920,7 @@ exports.SRPaymentsService = SRPaymentsService = __decorate([
         mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,
-        mongoose_2.Model])
+        mongoose_2.Model,
+        product_returns_service_1.ProductReturnsService])
 ], SRPaymentsService);
 //# sourceMappingURL=sr-payments.service.js.map

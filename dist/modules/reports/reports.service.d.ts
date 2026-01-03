@@ -32,24 +32,33 @@ export declare class ReportsService {
     getWeeklyData(companyId?: string): Promise<any[]>;
     getMonthlyData(companyId?: string): Promise<any[]>;
     getProfitLoss(companyId?: string, startDate?: Date, endDate?: Date): Promise<{
-        companyId: string;
-        income: {
-            srPayments: any;
-            netFromCompany: any;
+        period: {
+            startDate: Date;
+            endDate: Date;
+        };
+        revenue: {
+            totalSalesValue: any;
+            cashReceived: any;
+            outstandingReceivables: number;
             total: any;
         };
-        expenses: any;
-        netProfit: number;
-        details: any;
-        byCompany?: undefined;
-    } | {
-        income: {
-            srPayments: any;
-            netFromCompany: any;
-            total: any;
+        cogs: {
+            purchases: any;
+            discountsReceived: any;
+            netCOGS: number;
         };
-        expenses: any;
-        netProfit: number;
+        profitability: {
+            grossProfit: number;
+            operatingExpenses: any;
+            netProfit: number;
+        };
+        inventory: {
+            currentValue: any;
+        };
+        outstanding: {
+            customerDues: number;
+            supplierClaims: any;
+        };
         byCompany: {
             companyId: any;
             companyName: string;
@@ -58,8 +67,44 @@ export declare class ReportsService {
             totalCommission: any;
             totalSRPayment: any;
         }[];
-        companyId?: undefined;
-        details?: undefined;
+    } | {
+        companyId: string;
+        period: {
+            startDate: Date;
+            endDate: Date;
+        };
+        revenue: {
+            totalSalesValue: any;
+            cashReceived: any;
+            outstandingReceivables: number;
+            total: any;
+        };
+        cogs: {
+            purchases: any;
+            discountsReceived: any;
+            netCOGS: number;
+        };
+        profitability: {
+            grossProfit: number;
+            operatingExpenses: any;
+            netProfit: number;
+        };
+        inventory: {
+            currentValue: any;
+        };
+        outstanding: {
+            customerDues: number;
+            supplierClaims: any;
+        };
+        byCompany: {
+            companyId: any;
+            companyName: string;
+            netFromCompany: any;
+            totalDealerPrice: any;
+            totalCommission: any;
+            totalSRPayment: any;
+        }[];
+        details: any;
     }>;
     getDueAmounts(companyId?: string): Promise<{
         srDues: {

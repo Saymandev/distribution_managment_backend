@@ -25,11 +25,13 @@ let SRPaymentsController = class SRPaymentsController {
     create(createSRPaymentDto) {
         return this.srPaymentsService.create(createSRPaymentDto);
     }
-    findAll(srId) {
+    findAll(srId, page, limit) {
+        const pageNum = page ? parseInt(page, 10) : 1;
+        const limitNum = limit ? parseInt(limit, 10) : 10;
         if (srId) {
-            return this.srPaymentsService.findBySR(srId);
+            return this.srPaymentsService.findBySR(srId, pageNum, limitNum);
         }
-        return this.srPaymentsService.findAll();
+        return this.srPaymentsService.findAll(pageNum, limitNum);
     }
     getOptimized(companyId) {
         return this.srPaymentsService.getOptimized(companyId);
@@ -55,8 +57,10 @@ __decorate([
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, common_1.Query)("srId")),
+    __param(1, (0, common_1.Query)("page")),
+    __param(2, (0, common_1.Query)("limit")),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", void 0)
 ], SRPaymentsController.prototype, "findAll", null);
 __decorate([

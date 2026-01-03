@@ -26,7 +26,6 @@ let SupplierReceiptsController = class SupplierReceiptsController {
         return this.supplierReceiptsService.create(createSupplierReceiptDto);
     }
     findAll(companyId, startDate, endDate, search, page, limit) {
-       
         const filters = {
             companyId,
             startDate,
@@ -35,9 +34,7 @@ let SupplierReceiptsController = class SupplierReceiptsController {
             page: page ? parseInt(page) : 1,
             limit: limit ? parseInt(limit) : 10,
         };
-        
         const result = this.supplierReceiptsService.findAllWithFilters(filters);
-        
         return result;
     }
     getSupplierBalance(companyId) {

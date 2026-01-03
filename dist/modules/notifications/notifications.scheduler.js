@@ -20,7 +20,6 @@ let NotificationsScheduler = class NotificationsScheduler {
         this.notificationsGateway = notificationsGateway;
     }
     async handleLowStockCheck() {
-        console.log("🔔 Running low stock check...");
         const notifications = await this.notificationsService.checkLowStock();
         if (notifications && notifications.length > 0) {
             notifications.forEach((notif) => {
@@ -36,7 +35,6 @@ let NotificationsScheduler = class NotificationsScheduler {
             .emit("unread-count", unreadCount);
     }
     async handlePendingPaymentsCheck() {
-        console.log("🔔 Running pending payments check...");
         const notifications = await this.notificationsService.checkPendingPayments();
         if (notifications && notifications.length > 0) {
             notifications.forEach((notif) => {
@@ -52,7 +50,6 @@ let NotificationsScheduler = class NotificationsScheduler {
             .emit("unread-count", unreadCount);
     }
     async handlePendingClaimsCheck() {
-        console.log("🔔 Running pending claims check...");
         const notifications = await this.notificationsService.checkPendingClaims();
         if (notifications && notifications.length > 0) {
             notifications.forEach((notif) => {

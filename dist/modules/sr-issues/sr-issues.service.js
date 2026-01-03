@@ -95,9 +95,23 @@ let SRIssuesService = class SRIssuesService {
         }
         return issue.save();
     }
-    async findAll() {
+    async findAll(page = 1, limit = 10) {
         const { issues } = await this.getOptimized();
-        return issues;
+        const totalItems = issues.length;
+        const totalPages = Math.ceil(totalItems / limit);
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        return {
+            issues: issues.slice(startIndex, endIndex),
+            pagination: {
+                currentPage: page,
+                totalPages,
+                totalItems,
+                itemsPerPage: limit,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1,
+            },
+        };
     }
     async findOne(id) {
         const issue = await this.srIssueModel
@@ -110,7 +124,13 @@ let SRIssuesService = class SRIssuesService {
             throw new common_1.NotFoundException("SR Issue not found");
         }
         const paymentsForIssue = await this.srPaymentModel
-            .find({ issueId: issue._id })
+            .find({
+            $or: [
+                { issueId: issue._id },
+                { issueId: String(issue._id) },
+                { issueId: new mongoose_2.Types.ObjectId(String(issue._id)) },
+            ],
+        })
             .lean()
             .exec();
         const totalReceivedAmount = paymentsForIssue.reduce((sum, payment) => sum + (payment.receivedAmount || 0), 0);
@@ -132,19 +152,43 @@ let SRIssuesService = class SRIssuesService {
             }
         }
         adjustedTotalAmount = Math.max(0, adjustedTotalAmount);
-        const due = Math.max(0, adjustedTotalAmount - totalReceivedAmount);
+        const companyClaimsForIssue = paymentsForIssue.reduce((sum, payment) => sum + (payment.companyClaim || 0), 0);
+        const customerDuesForIssue = paymentsForIssue.reduce((sum, payment) => sum + (payment.customerDue || 0), 0);
+        const due = customerDuesForIssue > 0
+            ? customerDuesForIssue
+            : Math.max(0, adjustedTotalAmount - totalReceivedAmount - companyClaimsForIssue);
         const enrichedIssue = Object.assign(Object.assign({}, issue), { calculatedTotalAmount: adjustedTotalAmount, calculatedReceivedAmount: totalReceivedAmount, calculatedDue: due });
         return enrichedIssue;
     }
-    async findBySR(srId) {
+    async findBySR(srId, page = 1, limit = 10) {
         const { issues } = await this.getOptimized();
-        return issues.filter((issue) => {
+        const filteredIssues = issues.filter((issue) => {
             var _a, _b;
             const issueSrId = typeof issue.srId === "string"
                 ? issue.srId
                 : (_b = (_a = issue.srId) === null || _a === void 0 ? void 0 : _a._id) === null || _b === void 0 ? void 0 : _b.toString();
             return issueSrId === srId;
         });
+        const totalAmount = filteredIssues.reduce((sum, issue) => sum + (issue.totalAmount || 0), 0);
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        const paginatedIssues = filteredIssues.slice(startIndex, endIndex);
+        const totalItems = filteredIssues.length;
+        const totalPages = Math.ceil(totalItems / limit);
+        return {
+            issues: paginatedIssues,
+            pagination: {
+                currentPage: page,
+                totalPages,
+                totalItems,
+                itemsPerPage: limit,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1,
+            },
+            totals: {
+                totalAmount,
+            },
+        };
     }
     async getOptimized(companyId) {
         const [issues, salesReps, products, payments, returns, claims] = await Promise.all([
@@ -209,7 +253,30 @@ let SRIssuesService = class SRIssuesService {
                 }
             }
             adjustedTotalAmount = Math.max(0, adjustedTotalAmount);
-            const due = Math.max(0, adjustedTotalAmount - totalReceivedAmount);
+            let companyClaimsForIssue = 0;
+            let customerDuesForIssue = 0;
+            paymentsForIssue.forEach((payment) => {
+                if (payment.customerDue && payment.customerDue > 0) {
+                    customerDuesForIssue += payment.customerDue;
+                }
+                if (payment.companyClaim && payment.companyClaim > 0) {
+                    const relatedClaim = claims.find((claim) => {
+                        var _a;
+                        const claimPaymentId = typeof claim.paymentId === "string"
+                            ? claim.paymentId
+                            : String(((_a = claim.paymentId) === null || _a === void 0 ? void 0 : _a._id) || claim.paymentId);
+                        const paymentId = String(payment._id);
+                        return claimPaymentId === paymentId && claim.status !== "paid";
+                    });
+                    if (relatedClaim) {
+                        companyClaimsForIssue += payment.companyClaim;
+                    }
+                }
+            });
+            const hasOutstandingDues = customerDuesForIssue > 0 || companyClaimsForIssue > 0;
+            const due = hasOutstandingDues
+                ? customerDuesForIssue + companyClaimsForIssue
+                : Math.max(0, adjustedTotalAmount - totalReceivedAmount);
             dueAmounts[issueId] = {
                 totalAmount: adjustedTotalAmount,
                 receivedAmount: totalReceivedAmount,
@@ -223,7 +290,6 @@ let SRIssuesService = class SRIssuesService {
             const dateB = new Date(b.issueDate || b.createdAt).getTime();
             return dateB - dateA;
         });
-        console.log("[SRIssuesService] getOptimized - Final enrichedIssues before return:", enrichedIssues);
         return {
             issues: enrichedIssues,
             salesReps,

@@ -214,9 +214,11 @@ let ProductReturnsService = class ProductReturnsService {
             });
             totalDiscount = adjustedPaymentItems.reduce((sum, item) => sum + item.discount, 0);
             payment.items = adjustedPaymentItems;
-            payment.totalExpected = totalExpected;
             payment.totalReceived = originalReceived;
             payment.totalDiscount = totalDiscount;
+            const companyClaim = payment.companyClaim || 0;
+            const receivedAmount = payment.receivedAmount || 0;
+            payment.customerDue = Math.max(0, totalExpected - receivedAmount - companyClaim);
             await payment.save();
             let claim = await this.companyClaimModel.findOne({ issueId }).exec();
             if (!claim) {

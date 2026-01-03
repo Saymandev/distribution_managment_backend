@@ -14,9 +14,9 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SRIssuesController = void 0;
 const common_1 = require("@nestjs/common");
-const sr_issues_service_1 = require("./sr-issues.service");
-const create_sr_issue_dto_1 = require("./dto/create-sr-issue.dto");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
+const create_sr_issue_dto_1 = require("./dto/create-sr-issue.dto");
+const sr_issues_service_1 = require("./sr-issues.service");
 let SRIssuesController = class SRIssuesController {
     constructor(srIssuesService) {
         this.srIssuesService = srIssuesService;
@@ -24,11 +24,13 @@ let SRIssuesController = class SRIssuesController {
     create(createSRIssueDto) {
         return this.srIssuesService.create(createSRIssueDto);
     }
-    findAll(srId) {
+    findAll(srId, page, limit) {
+        const pageNum = page ? parseInt(page, 10) : 1;
+        const limitNum = limit ? parseInt(limit, 10) : 10;
         if (srId) {
-            return this.srIssuesService.findBySR(srId);
+            return this.srIssuesService.findBySR(srId, pageNum, limitNum);
         }
-        return this.srIssuesService.findAll();
+        return this.srIssuesService.findAll(pageNum, limitNum);
     }
     getOptimized(companyId) {
         return this.srIssuesService.getOptimized(companyId);
@@ -48,8 +50,10 @@ __decorate([
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, common_1.Query)("srId")),
+    __param(1, (0, common_1.Query)("page")),
+    __param(2, (0, common_1.Query)("limit")),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", void 0)
 ], SRIssuesController.prototype, "findAll", null);
 __decorate([

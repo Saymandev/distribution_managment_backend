@@ -509,15 +509,22 @@ export class ReportsService {
   }
 
   async getProfitLoss(companyId?: string, startDate?: Date, endDate?: Date) {
-    // If no dates provided, default to today
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const endOfToday = new Date();
-    endOfToday.setHours(23, 59, 59, 999);
+    // If no dates provided, default to current month
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
 
     // Ensure dates cover full day range
-    let finalStartDate = startDate || today;
-    let finalEndDate = endDate || endOfToday;
+    let finalStartDate = startDate || startOfMonth;
+    let finalEndDate = endDate || endOfMonth;
 
     // Normalize dates to ensure full day coverage
     if (startDate) {
@@ -535,13 +542,13 @@ export class ReportsService {
       matchConditions.companyId = companyId;
     }
 
-    // Always apply date filter (defaults to today if not provided)
+    // Always apply date filter
     matchConditions.createdAt = {
       $gte: finalStartDate,
       $lte: finalEndDate,
     };
 
-    // Get SR Payments - use same date range
+    // Get SR Payments and Sales Data
     const srPaymentsMatch: any = {
       paymentDate: {
         $gte: finalStartDate,
@@ -555,23 +562,109 @@ export class ReportsService {
         $group: {
           _id: null,
           totalReceived: { $sum: "$totalReceived" },
+          totalExpected: { $sum: "$totalExpected" }, // Total sales value
         },
       },
     ]);
 
-    // Get Company Claims (Net from company)
-    const companyClaims = await this.companyClaimModel.aggregate([
-      { $match: matchConditions },
+    // Get outstanding customer dues - more comprehensive calculation
+    const outstandingReceivables = await this.srPaymentModel.aggregate([
+      {
+        $match: srPaymentsMatch, // Include all payments in date range
+      },
       {
         $group: {
-          _id: companyId ? null : "$companyId",
-          totalNetFromCompany: { $sum: "$netFromCompany" },
-          totalDealerPrice: { $sum: "$totalDealerPrice" },
-          totalCommission: { $sum: "$totalCommission" },
-          totalSRPayment: { $sum: "$totalSRPayment" },
+          _id: null,
+          totalCustomerDue: { $sum: { $max: ["$customerDue", 0] } }, // Sum all positive customer dues
+          totalUnpaid: {
+            $sum: {
+              $max: [{ $subtract: ["$totalExpected", "$totalReceived"] }, 0],
+            },
+          }, // Sum unpaid portions
         },
       },
     ]);
+
+    // Calculate total outstanding as the maximum of explicit customer dues and unpaid amounts
+    const customerDueAmount =
+      outstandingReceivables.length > 0
+        ? outstandingReceivables[0].totalCustomerDue || 0
+        : 0;
+    const unpaidAmount =
+      outstandingReceivables.length > 0
+        ? outstandingReceivables[0].totalUnpaid || 0
+        : 0;
+    const totalOutstandingReceivables = Math.max(
+      customerDueAmount,
+      unpaidAmount,
+    );
+
+    // Get Company Claims and Supplier Costs
+    // Get pending claims suppliers still owe compensation
+    // Note: We don't filter claims by date since supplier compensation is cumulative
+    const dateFilteredMatch = { ...matchConditions };
+    delete dateFilteredMatch.createdAt; // Remove date filtering for claims
+
+    console.log("DEBUG - Claims query match:", {
+      ...dateFilteredMatch,
+      status: "pending",
+    });
+
+    const pendingClaims = await this.companyClaimModel
+      .find({
+        ...dateFilteredMatch,
+        status: "pending",
+      })
+      .exec();
+
+    console.log("DEBUG - Found pending claims:", pendingClaims.length);
+    pendingClaims.forEach((c) =>
+      console.log(
+        "  ",
+        c.claimNumber,
+        ":",
+        c.netFromCompany,
+        "company:",
+        c.companyId,
+      ),
+    );
+
+    // Calculate total compensation owed by suppliers
+    // Only include positive claims (negative claims are likely data errors)
+    const totalNetFromCompany = pendingClaims
+      .filter((claim) => (claim.netFromCompany || 0) > 0)
+      .reduce((sum, claim) => sum + (claim.netFromCompany || 0), 0);
+
+    // Group claims by company for proper byCompany breakdown
+    const companyGroups = pendingClaims.reduce(
+      (groups, claim) => {
+        const companyId = claim.companyId;
+        const companyKey =
+          typeof companyId === "string"
+            ? companyId
+            : (companyId as any)?._id?.toString() || "unknown";
+
+        if (!groups[companyKey]) {
+          groups[companyKey] = {
+            _id: companyKey,
+            totalNetFromCompany: 0,
+            totalDealerPrice: 0,
+            totalCommission: 0,
+            totalSRPayment: 0,
+          };
+        }
+
+        groups[companyKey].totalNetFromCompany += claim.netFromCompany || 0;
+        groups[companyKey].totalDealerPrice += claim.totalDealerPrice || 0;
+        groups[companyKey].totalCommission += 0; // Not available in claim data
+        groups[companyKey].totalSRPayment += claim.totalSRPayment || 0;
+
+        return groups;
+      },
+      {} as Record<string, any>,
+    );
+
+    const companyClaims = Object.values(companyGroups);
 
     // Get Expenses - use same date range
     const expensesMatch: any = {
@@ -591,36 +684,130 @@ export class ReportsService {
       },
     ]);
 
+    // Calculate Inventory Values (simplified - assuming average cost method)
+    // In a real system, you'd track actual inventory movements
+    const inventoryValue = await this.productModel.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalStockValue: {
+            $sum: { $multiply: ["$stock", "$dealerPrice"] }, // Using dealer price as cost
+          },
+        },
+      },
+    ]);
+
+    // Calculate supplier purchases (cost of goods acquired)
+    const supplierPurchases = companyClaims.reduce(
+      (sum, claim) => sum + (claim.totalDealerPrice || 0),
+      0,
+    );
+
     const totalSRPayments =
       srPayments.length > 0 ? srPayments[0].totalReceived : 0;
+    const totalSalesValue =
+      srPayments.length > 0 ? srPayments[0].totalExpected : 0;
+    // totalOutstandingReceivables is already calculated above
     const totalExpenses = expenses.length > 0 ? expenses[0].total : 0;
+    const currentInventoryValue =
+      inventoryValue.length > 0 ? inventoryValue[0].totalStockValue : 0;
 
     if (companyId) {
-      // Single company profit/loss
+      // Single company profit/loss with inventory accounting
       const claim = companyClaims.length > 0 ? companyClaims[0] : null;
       const totalNetFromCompany = claim ? claim.totalNetFromCompany : 0;
-      const totalIncome = totalSRPayments + totalNetFromCompany;
-      const netProfit = totalIncome - totalExpenses;
+      const companyPurchases = claim ? claim.totalDealerPrice : 0;
+
+      // Revenue = Total sales value (accrual basis)
+      const totalRevenue = totalSalesValue;
+
+      // COGS calculation (simplified - would need inventory tracking for accuracy)
+      // For now, using purchases as proxy for COGS
+      const cogs = companyPurchases - totalNetFromCompany; // Net cost after discounts
+
+      // Gross Profit
+      const grossProfit = totalRevenue - cogs;
+
+      // Net Profit
+      const netProfit = grossProfit - totalExpenses;
+
+      // Get company name for the byCompany array
+      const companies = await this.companyModel
+        .find({ _id: companyId })
+        .select("_id name")
+        .exec();
+
+      const companyMap = new Map(
+        companies.map((c) => [c._id.toString(), c.name]),
+      );
 
       return {
         companyId,
-        income: {
-          srPayments: totalSRPayments,
-          netFromCompany: totalNetFromCompany,
-          total: totalIncome,
+        period: {
+          startDate: finalStartDate,
+          endDate: finalEndDate,
         },
-        expenses: totalExpenses,
-        netProfit,
+        revenue: {
+          totalSalesValue,
+          cashReceived: totalSRPayments,
+          outstandingReceivables: totalOutstandingReceivables,
+          total: totalRevenue,
+        },
+        cogs: {
+          purchases: companyPurchases,
+          discountsReceived: totalNetFromCompany,
+          netCOGS: cogs,
+        },
+        profitability: {
+          grossProfit,
+          operatingExpenses: totalExpenses,
+          netProfit,
+        },
+        inventory: {
+          currentValue: currentInventoryValue,
+        },
+        outstanding: {
+          customerDues: totalOutstandingReceivables,
+          supplierClaims: totalNetFromCompany,
+        },
+        byCompany: claim
+          ? [
+              {
+                companyId: claim._id,
+                companyName:
+                  companyMap.get(claim._id?.toString() || "") ||
+                  "Unknown Company",
+                netFromCompany: claim.totalNetFromCompany,
+                totalDealerPrice: claim.totalDealerPrice,
+                totalCommission: claim.totalCommission,
+                totalSRPayment: claim.totalSRPayment,
+              },
+            ]
+          : [],
         details: claim || {},
       };
     } else {
-      // All companies profit/loss
+      // All companies profit/loss with inventory accounting
       const totalNetFromCompany = companyClaims.reduce(
         (sum, c) => sum + c.totalNetFromCompany,
         0,
       );
-      const totalIncome = totalSRPayments + totalNetFromCompany;
-      const netProfit = totalIncome - totalExpenses;
+      const totalPurchases = companyClaims.reduce(
+        (sum, c) => sum + (c.totalDealerPrice || 0),
+        0,
+      );
+
+      // Revenue = Total sales value (accrual basis)
+      const totalRevenue = totalSalesValue;
+
+      // COGS calculation
+      const cogs = totalPurchases - totalNetFromCompany; // Net cost after discounts
+
+      // Gross Profit
+      const grossProfit = totalRevenue - cogs;
+
+      // Net Profit
+      const netProfit = grossProfit - totalExpenses;
 
       // Get company names for the breakdown
       const companyIds = companyClaims.map((c) => c._id).filter((id) => id);
@@ -633,14 +820,37 @@ export class ReportsService {
         companies.map((c) => [c._id.toString(), c.name]),
       );
 
-      return {
-        income: {
-          srPayments: totalSRPayments,
-          netFromCompany: totalNetFromCompany,
-          total: totalIncome,
+      console.log("DEBUG - companyClaims:", companyClaims);
+      console.log("DEBUG - companyMap:", Array.from(companyMap.entries()));
+
+      const result = {
+        period: {
+          startDate: finalStartDate,
+          endDate: finalEndDate,
         },
-        expenses: totalExpenses,
-        netProfit,
+        revenue: {
+          totalSalesValue,
+          cashReceived: totalSRPayments,
+          outstandingReceivables: totalOutstandingReceivables,
+          total: totalRevenue,
+        },
+        cogs: {
+          purchases: totalPurchases,
+          discountsReceived: totalNetFromCompany,
+          netCOGS: cogs,
+        },
+        profitability: {
+          grossProfit,
+          operatingExpenses: totalExpenses,
+          netProfit,
+        },
+        inventory: {
+          currentValue: currentInventoryValue,
+        },
+        outstanding: {
+          customerDues: totalOutstandingReceivables,
+          supplierClaims: totalNetFromCompany,
+        },
         byCompany: companyClaims.map((c) => ({
           companyId: c._id,
           companyName:
@@ -651,6 +861,9 @@ export class ReportsService {
           totalSRPayment: c.totalSRPayment,
         })),
       };
+
+      console.log("DEBUG - result.byCompany:", result.byCompany);
+      return result;
     }
   }
 
@@ -1997,17 +2210,15 @@ export class ReportsService {
 
       // Calculate value at TP
       let issueValue = 0;
+      let totalProductsIssued = 0;
       issue.items.forEach((item) => {
-        const product =
-          typeof item.productId === "object" && item.productId !== null
-            ? (item.productId as any)
-            : null;
-        const tradePrice = product?.tradePrice || 0;
+        const tradePrice = item.tradePrice || 0;
         issueValue += item.quantity * tradePrice;
+        totalProductsIssued += item.quantity;
       });
 
       dayData.productIssued += issueValue;
-      dayData.productIssuedCount += 1;
+      dayData.productIssuedCount += totalProductsIssued;
     });
 
     // Convert to array and sort by date
@@ -2185,14 +2396,44 @@ export class ReportsService {
       {
         $lookup: {
           from: "srpayments",
-          localField: "_id",
-          foreignField: "issueId",
+          let: { issueId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: [{ $toString: "$issueId" }, { $toString: "$$issueId" }],
+                },
+              },
+            },
+          ],
           as: "payments",
         },
       },
       {
+        $addFields: {
+          totalReceived: {
+            $sum: "$payments.receivedAmount",
+          },
+        },
+      },
+      {
         $match: {
-          payments: { $eq: [] }, // Only issues with no payments (pending)
+          $or: [
+            { payments: { $size: 0 } }, // No payments at all
+            {
+              $expr: {
+                $gt: [
+                  {
+                    $subtract: [
+                      "$totalAmount",
+                      { $ifNull: ["$totalReceived", 0] },
+                    ],
+                  },
+                  0.01,
+                ],
+              },
+            },
+          ],
         },
       },
       { $sort: { issueDate: -1 } }, // Sort by issue date descending
@@ -2215,22 +2456,41 @@ export class ReportsService {
       {
         $lookup: {
           from: "salesreps",
-          localField: "srId",
-          foreignField: "_id",
+          let: { srId: "$srId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$_id", { $toObjectId: "$$srId" }],
+                },
+              },
+            },
+          ],
           as: "srInfo",
-        },
-      },
-      {
-        $unwind: {
-          path: "$srInfo",
-          preserveNullAndEmptyArrays: true,
         },
       },
       {
         $lookup: {
           from: "products",
-          localField: "items.productId",
-          foreignField: "_id",
+          let: { productIds: "$items.productId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $in: [
+                    "$_id",
+                    {
+                      $map: {
+                        input: "$$productIds",
+                        as: "pid",
+                        in: { $toObjectId: "$$pid" },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
           as: "productInfo",
         },
       },
@@ -2238,9 +2498,27 @@ export class ReportsService {
         $project: {
           issueNumber: 1,
           issueDate: 1,
-          srId: "$srInfo._id",
-          srName: "$srInfo.name",
-          srPhone: "$srInfo.phone",
+          srId: {
+            $cond: {
+              if: { $gt: [{ $size: "$srInfo" }, 0] },
+              then: { $arrayElemAt: ["$srInfo._id", 0] },
+              else: "$srId",
+            },
+          },
+          srName: {
+            $cond: {
+              if: { $gt: [{ $size: "$srInfo" }, 0] },
+              then: { $arrayElemAt: ["$srInfo.name", 0] },
+              else: "Unknown SR",
+            },
+          },
+          srPhone: {
+            $cond: {
+              if: { $gt: [{ $size: "$srInfo" }, 0] },
+              then: { $arrayElemAt: ["$srInfo.phone", 0] },
+              else: "",
+            },
+          },
           items: {
             $map: {
               input: "$items",

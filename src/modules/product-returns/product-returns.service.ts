@@ -322,9 +322,19 @@ export class ProductReturnsService {
       );
 
       payment.items = adjustedPaymentItems;
-      payment.totalExpected = totalExpected;
+      // payment.totalExpected should remain as original expected amount, don't change it
       payment.totalReceived = originalReceived; // Keep original payment amount
       payment.totalDiscount = totalDiscount;
+
+      // Recalculate customerDue based on adjusted totals
+      // customerDue = max(0, totalExpected - receivedAmount - companyClaim)
+      const companyClaim = payment.companyClaim || 0;
+      const receivedAmount = payment.receivedAmount || 0;
+      payment.customerDue = Math.max(
+        0,
+        totalExpected - receivedAmount - companyClaim,
+      );
+
       await payment.save();
 
       // Update claim if it exists (find by issueId first, then paymentId)

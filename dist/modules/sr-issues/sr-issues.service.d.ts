@@ -16,9 +16,16 @@ export declare class SRIssuesService {
     constructor(srIssueModel: Model<SRIssueDocument>, productModel: Model<ProductDocument>, salesRepModel: Model<SalesRepDocument>, srPaymentModel: Model<SRPaymentDocument>, productReturnModel: Model<ProductReturnDocument>, companyClaimModel: Model<CompanyClaimDocument>);
     generateIssueNumber(): Promise<string>;
     create(dto: CreateSRIssueDto): Promise<SRIssue>;
-    findAll(): Promise<SRIssue[]>;
+    findAll(page?: number, limit?: number): Promise<{
+        issues: SRIssue[];
+        pagination: any;
+    }>;
     findOne(id: string): Promise<SRIssue>;
-    findBySR(srId: string): Promise<SRIssue[]>;
+    findBySR(srId: string, page?: number, limit?: number): Promise<{
+        issues: SRIssue[];
+        pagination: any;
+        totals: any;
+    }>;
     getOptimized(companyId?: string): Promise<{
         issues: SRIssue[];
         salesReps: SalesRep[];

@@ -17,6 +17,7 @@ import {
 import {
   ProductReturn,
   ProductReturnDocument,
+  ReturnType,
 } from "../../database/schemas/product-return.schema";
 import {
   Product,
@@ -34,6 +35,7 @@ import {
   SRPayment,
   SRPaymentDocument,
 } from "../../database/schemas/sr-payment.schema";
+import { ProductReturnsService } from "../product-returns/product-returns.service";
 import { CreateSRPaymentDto } from "./dto/create-sr-payment.dto";
 import { UpdateSRPaymentDto } from "./dto/update-sr-payment.dto";
 
@@ -54,6 +56,7 @@ export class SRPaymentsService {
     private readonly companyClaimModel: Model<CompanyClaimDocument>,
     @InjectModel(ProductReturn.name)
     private readonly productReturnModel: Model<ProductReturnDocument>,
+    private readonly productReturnsService: ProductReturnsService,
   ) {}
 
   async generateReceiptNumber(): Promise<string> {
@@ -196,9 +199,14 @@ export class SRPaymentsService {
         throw new NotFoundException(`Product ${productId} not found`);
       }
 
+      const dealerPriceTotal = paymentItem.quantity * paymentItem.dealerPrice;
       const discount =
         paymentItem.quantity *
         (paymentItem.dealerPrice - paymentItem.tradePrice); // Discount given to customer
+      const commissionAmount =
+        dealerPriceTotal * (company.commissionRate / 100); // Use company's commission rate
+      const srPayment = paymentItem.quantity * paymentItem.tradePrice;
+      const netFromCompany = dealerPriceTotal + commissionAmount - srPayment; // Dealer price + commission - SR payment
 
       return {
         productId,
@@ -206,8 +214,10 @@ export class SRPaymentsService {
         dealerPrice: paymentItem.dealerPrice,
         tradePrice: paymentItem.tradePrice,
         discount,
-        srPayment: paymentItem.quantity * paymentItem.tradePrice, // What SR actually paid
-        netFromCompany: discount, // Amount to claim from company
+        commissionRate: company.commissionRate,
+        commissionAmount,
+        srPayment,
+        netFromCompany,
       };
     });
 
@@ -216,12 +226,16 @@ export class SRPaymentsService {
       (sum, item) => sum + item.quantity * item.dealerPrice,
       0,
     );
-    const totalCompanyClaim = payment.companyClaim || 0; // Use the manually entered claim amount
+    const totalCommission = claimItems.reduce(
+      (sum, item) => sum + item.commissionAmount,
+      0,
+    );
     const totalSRPayment = claimItems.reduce(
       (sum, item) => sum + item.srPayment,
       0,
     ); // What SR actually paid
-    const netFromCompany = totalCompanyClaim; // Amount to claim from company
+    const totalCompanyClaim = totalDealerPrice + totalCommission; // Dealer price + commission
+    const netFromCompany = totalCompanyClaim - totalSRPayment; // Amount to claim from company
 
     // Generate claim number
     const claimNumber = await this.generateClaimNumber();
@@ -346,9 +360,14 @@ export class SRPaymentsService {
         throw new NotFoundException(`Product ${productId} not found`);
       }
 
+      const dealerPriceTotal = paymentItem.quantity * paymentItem.dealerPrice;
       const discount =
         paymentItem.quantity *
         (paymentItem.dealerPrice - paymentItem.tradePrice); // Discount given to customer
+      const commissionAmount =
+        dealerPriceTotal * (company.commissionRate / 100); // Use company's commission rate
+      const srPayment = paymentItem.quantity * paymentItem.tradePrice;
+      const netFromCompany = dealerPriceTotal + commissionAmount - srPayment; // Dealer price + commission - SR payment
 
       return {
         productId,
@@ -356,8 +375,10 @@ export class SRPaymentsService {
         dealerPrice: paymentItem.dealerPrice,
         tradePrice: paymentItem.tradePrice,
         discount,
-        srPayment: paymentItem.quantity * paymentItem.tradePrice, // What SR actually paid
-        netFromCompany: discount, // Amount to claim from company
+        commissionRate: company.commissionRate,
+        commissionAmount,
+        srPayment,
+        netFromCompany,
       };
     });
 
@@ -366,12 +387,16 @@ export class SRPaymentsService {
       (sum, item) => sum + item.quantity * item.dealerPrice,
       0,
     );
-    const totalCompanyClaim = payment.companyClaim || 0; // Use the manually entered claim amount
+    const totalCommission = claimItems.reduce(
+      (sum, item) => sum + item.commissionAmount,
+      0,
+    );
     const totalSRPayment = claimItems.reduce(
       (sum, item) => sum + item.srPayment,
       0,
     ); // What SR actually paid
-    const netFromCompany = totalCompanyClaim; // Amount to claim from company
+    const totalCompanyClaim = totalDealerPrice + totalCommission; // Dealer price + commission
+    const netFromCompany = totalCompanyClaim - totalSRPayment; // Amount to claim from company
 
     // Update the claim
     const finalIssueId: string =
@@ -384,6 +409,7 @@ export class SRPaymentsService {
     existingClaim.totalCompanyClaim = totalCompanyClaim;
     existingClaim.totalSRPayment = totalSRPayment;
     existingClaim.netFromCompany = netFromCompany;
+    existingClaim.companyId = companyId; // Ensure companyId is set
     existingClaim.paymentId = String(payment._id); // Update payment reference
     existingClaim.issueId = finalIssueId; // Ensure issueId is set as string
     existingClaim.notes = `Auto-updated from payment ${payment.receiptNumber}`;
@@ -392,6 +418,72 @@ export class SRPaymentsService {
   }
 
   async create(dto: CreateSRPaymentDto): Promise<SRPayment> {
+    // Process returns FIRST before creating payment
+    let damageReturnId: string | null = null;
+    let customerReturnId: string | null = null;
+
+    if (dto.returnItems && dto.returnItems.length > 0 && dto.issueId) {
+      try {
+        // Separate damaged and customer return items
+        const damagedItems = dto.returnItems
+          .filter((item) => item.damagedQuantity > 0)
+          .map((item) => ({
+            productId: item.productId,
+            quantity: item.damagedQuantity,
+            reason: item.reason || "damage product",
+          }));
+
+        const customerReturnItems = dto.returnItems
+          .filter((item) => item.customerReturnQuantity > 0)
+          .map((item) => ({
+            productId: item.productId,
+            quantity: item.customerReturnQuantity,
+            reason: item.reason || undefined,
+          }));
+
+        // Create damage return if there are damaged items
+        if (damagedItems.length > 0) {
+          const totalDamagedQty = damagedItems.reduce(
+            (sum, item) => sum + item.quantity,
+            0,
+          );
+          const damageReturnDto = {
+            returnNumber: `DAMAGE-RET-${Date.now()}`,
+            returnType: ReturnType.DAMAGE_RETURN,
+            srId: dto.srId,
+            issueId: dto.issueId,
+            items: damagedItems,
+            notes: `Damage return processed with payment. Total ${totalDamagedQty} damaged product(s).`,
+          };
+          const createdDamageReturn =
+            await this.productReturnsService.create(damageReturnDto);
+          damageReturnId = (createdDamageReturn as any)._id.toString();
+        }
+
+        // Create customer return if there are customer return items
+        if (customerReturnItems.length > 0) {
+          const totalCustomerReturnQty = customerReturnItems.reduce(
+            (sum, item) => sum + item.quantity,
+            0,
+          );
+          const customerReturnDto = {
+            returnNumber: `CUSTOMER-RET-${Date.now() + 1}`,
+            returnType: ReturnType.CUSTOMER_RETURN,
+            srId: dto.srId,
+            issueId: dto.issueId,
+            items: customerReturnItems,
+            notes: `Customer return processed with payment. Total ${totalCustomerReturnQty} product(s) returned.`,
+          };
+          const createdCustomerReturn =
+            await this.productReturnsService.create(customerReturnDto);
+          customerReturnId = (createdCustomerReturn as any)._id.toString();
+        }
+      } catch (error) {
+        console.error("Return processing failed in payment creation:", error);
+        // Continue with payment creation even if returns fail
+      }
+    }
+
     // Explicitly set receiptNumber to undefined if it's an empty string or null
     if (
       dto.receiptNumber === null ||
@@ -404,7 +496,7 @@ export class SRPaymentsService {
       // These `totalExpected`, `totalReceived`, and `items` variables are local to this `if` block.
       // The actual values for the new payment are calculated below.
       const totalExpected = dto.items.reduce(
-        (sum, item) => sum + item.quantity * item.dealerPrice,
+        (sum, item) => sum + item.quantity * item.tradePrice,
         0,
       );
       const totalReceived = dto.items.reduce(
@@ -416,7 +508,7 @@ export class SRPaymentsService {
         quantity: item.quantity,
         dealerPrice: item.dealerPrice,
         tradePrice: item.tradePrice,
-        expected: item.quantity * item.dealerPrice,
+        expected: item.quantity * item.tradePrice,
         received: item.quantity * item.tradePrice,
       }));
     }
@@ -463,7 +555,7 @@ export class SRPaymentsService {
 
         // Update existing payment with cumulative totals
         existingPayment.items = processedItems;
-        existingPayment.totalExpected = totalExpectedFromDto;
+        // totalExpected should remain as original expected amount, don't change it
         existingPayment.totalReceived =
           (existingPayment.totalReceived || 0) + (dto.receivedAmount || 0); // Add current payment to cumulative
         existingPayment.totalDiscount = totalDiscountFromDto;
@@ -582,26 +674,44 @@ export class SRPaymentsService {
       companyClaim: dto.companyClaim || 0,
       customerInfo: dto.customerInfo,
       customerDue: dto.customerDue || 0,
-      notes: dto.notes,
+      notes:
+        dto.notes +
+        (damageReturnId || customerReturnId ? " (Includes returns)" : ""),
     });
     const savedPayment = await payment.save();
 
-    // Automatically create claim when payment has a company claim amount
-    if (savedPayment.companyClaim && savedPayment.companyClaim > 0) {
-      try {
-        await this.createClaimFromPayment(savedPayment);
-      } catch (error) {
-        // Log error but don't fail payment creation
-        console.error("Failed to auto-create claim for payment:", error);
-      }
+    // Automatically create claim based on company's commission rate
+    try {
+      await this.createClaimFromPayment(savedPayment);
+    } catch (error) {
+      // Log error but don't fail payment creation
+      console.error("Failed to auto-create claim for payment:", error);
     }
 
     return savedPayment;
   }
 
-  async findAll(): Promise<any[]> {
+  async findAll(
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{ payments: any[]; pagination: any }> {
     const { payments } = await this.getOptimized();
-    return payments;
+    const totalItems = payments.length;
+    const totalPages = Math.ceil(totalItems / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+
+    return {
+      payments: payments.slice(startIndex, endIndex),
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems,
+        itemsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+    };
   }
 
   async getOptimized(companyId?: string): Promise<any> {
@@ -726,15 +836,41 @@ export class SRPaymentsService {
         (issueReturnMap[issueId] || 0) + totalReturnValue;
     });
 
-    // Map to store total company claim value for each issue, directly from payments
+    // Map to store total company claim and customer due values for each issue
+    // Only include unpaid claims and outstanding customer dues
     const issueClaimMap: Record<string, number> = {};
+    const issueCustomerDueMap: Record<string, number> = {};
+
     filteredPayments.forEach((payment) => {
       const issueId =
         typeof payment.issueId === "string"
           ? payment.issueId
           : String((payment.issueId as any)?._id || payment.issueId);
-      issueClaimMap[issueId] =
-        (issueClaimMap[issueId] || 0) + (payment.companyClaim || 0);
+
+      // Only include customer dues that haven't been settled (customerDue > 0 means outstanding)
+      if (payment.customerDue && payment.customerDue > 0) {
+        issueCustomerDueMap[issueId] =
+          (issueCustomerDueMap[issueId] || 0) + payment.customerDue;
+      }
+
+      // For company claims, check if the corresponding claim is still unpaid
+      if (payment.companyClaim && payment.companyClaim > 0) {
+        // Find if there's a corresponding claim for this payment that's still pending
+        const relatedClaim = filteredClaims.find((claim) => {
+          const claimPaymentId =
+            typeof claim.paymentId === "string"
+              ? claim.paymentId
+              : String((claim.paymentId as any)?._id || claim.paymentId);
+          const paymentId = String(payment._id);
+          return claimPaymentId === paymentId && claim.status !== "paid";
+        });
+
+        // Only include company claims that haven't been paid yet
+        if (relatedClaim) {
+          issueClaimMap[issueId] =
+            (issueClaimMap[issueId] || 0) + payment.companyClaim;
+        }
+      }
     });
 
     for (const issue of filteredIssues) {
@@ -747,15 +883,17 @@ export class SRPaymentsService {
         adjustedTotalAmount - (issueReturnMap[issueIdString] || 0),
       );
 
-      // Subtract claims from adjusted total amount
-      // This is now handled in the frontend display logic
-      // adjustedTotalAmount = Math.max(
-      //   0,
-      //   adjustedTotalAmount - (issueClaimMap[issueIdString] || 0),
-      // );
-
       const receivedAmount = issueReceivedMap[issueIdString] || 0;
-      const due = Math.max(0, adjustedTotalAmount - receivedAmount);
+      const totalCompanyClaims = issueClaimMap[issueIdString] || 0;
+      const totalCustomerDues = issueCustomerDueMap[issueIdString] || 0;
+
+      // Due calculation: If there are payments with customer dues or company claims,
+      // include both as due amounts. Otherwise use traditional calculation.
+      const hasPaymentsWithDues =
+        totalCustomerDues > 0 || totalCompanyClaims > 0;
+      const due = hasPaymentsWithDues
+        ? totalCustomerDues + totalCompanyClaims
+        : Math.max(0, adjustedTotalAmount - receivedAmount);
 
       dueAmounts[issueIdString] = {
         totalAmount: adjustedTotalAmount,
@@ -819,12 +957,24 @@ export class SRPaymentsService {
   }
 
   async findOne(id: string): Promise<any> {
-    const payment = await this.srPaymentModel
-      .findById(id)
-      .populate("srId")
-      .populate("issueId", "issueNumber totalAmount")
-      .populate("items.productId")
-      .exec();
+    // Check if id looks like a receipt number (starts with PAY-)
+    let payment;
+    if (id.startsWith("PAY-")) {
+      payment = await this.srPaymentModel
+        .findOne({ receiptNumber: id })
+        .populate("srId")
+        .populate("issueId", "issueNumber totalAmount")
+        .populate("items.productId")
+        .exec();
+    } else {
+      // Assume it's an ObjectId
+      payment = await this.srPaymentModel
+        .findById(id)
+        .populate("srId")
+        .populate("issueId", "issueNumber totalAmount")
+        .populate("items.productId")
+        .exec();
+    }
     if (!payment) {
       throw new NotFoundException("SR Payment not found");
     }
@@ -920,15 +1070,45 @@ export class SRPaymentsService {
     return paymentObj;
   }
 
-  async findBySR(srId: string): Promise<any[]> {
+  async findBySR(
+    srId: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{ payments: any[]; pagination: any; totals: any }> {
     const { payments } = await this.getOptimized();
-    return payments.filter((p) => {
+    const filteredPayments = payments.filter((p) => {
       const pSrId =
         typeof p.srId === "string"
           ? p.srId
           : String((p.srId as any)?._id || p.srId);
       return pSrId === srId;
     });
+
+    // Calculate totals before pagination
+    const totalReceived = filteredPayments.reduce(
+      (sum, payment) => sum + (payment.totalReceived || 0),
+      0,
+    );
+
+    const totalItems = filteredPayments.length;
+    const totalPages = Math.ceil(totalItems / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+
+    return {
+      payments: filteredPayments.slice(startIndex, endIndex),
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems,
+        itemsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+      totals: {
+        totalReceived,
+      },
+    };
   }
 
   async update(id: string, dto: UpdateSRPaymentDto): Promise<SRPayment> {
@@ -940,7 +1120,14 @@ export class SRPaymentsService {
       dto.receiptNumber = undefined;
     }
 
-    const payment = await this.srPaymentModel.findById(id).exec();
+    // Check if id looks like a receipt number (starts with PAY-)
+    let payment;
+    if (id.startsWith("PAY-")) {
+      payment = await this.srPaymentModel.findOne({ receiptNumber: id }).exec();
+    } else {
+      payment = await this.srPaymentModel.findById(id).exec();
+    }
+
     if (!payment) {
       throw new NotFoundException("SR Payment not found");
     }
@@ -1055,17 +1242,26 @@ export class SRPaymentsService {
   }
 
   async remove(id: string): Promise<void> {
+    // Check if id looks like a receipt number (starts with PAY-)
+    let payment;
+    if (id.startsWith("PAY-")) {
+      payment = await this.srPaymentModel.findOne({ receiptNumber: id }).exec();
+    } else {
+      payment = await this.srPaymentModel.findById(id).exec();
+    }
+
+    if (!payment) {
+      throw new NotFoundException("SR Payment not found");
+    }
+
     // Find and delete associated claim first
     const claim = await this.companyClaimModel
-      .findOne({ paymentId: id })
+      .findOne({ paymentId: payment._id })
       .exec();
     if (claim) {
       await this.companyClaimModel.findByIdAndDelete(claim._id).exec();
     }
 
-    const res = await this.srPaymentModel.findByIdAndDelete(id).exec();
-    if (!res) {
-      throw new NotFoundException("SR Payment not found");
-    }
+    await this.srPaymentModel.findByIdAndDelete(payment._id).exec();
   }
 }

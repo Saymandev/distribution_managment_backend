@@ -5,7 +5,7 @@ export declare class CompanyClaimsController {
     private readonly companyClaimsService;
     constructor(companyClaimsService: CompanyClaimsService);
     create(createCompanyClaimDto: CreateCompanyClaimDto): Promise<import("../../database/schemas/company-claim.schema").CompanyClaim>;
-    findAll(companyId?: string, page?: number, limit?: number, timePeriod?: "all" | "week" | "month" | "year", searchQuery?: string): Promise<{
+    findAll(companyId?: string, page?: string, limit?: string, timePeriod?: "all" | "week" | "month" | "year", searchQuery?: string): Promise<{
         claims: import("../../database/schemas/company-claim.schema").CompanyClaim[];
         pagination: any;
     }>;

@@ -31,7 +31,6 @@ let ProductsService = class ProductsService {
         }
         const commissionPercent = (_a = dto.commissionPercent) !== null && _a !== void 0 ? _a : 0;
         const dealerPrice = dto.dealerPrice || 0;
-        console.log("🔧 Backend received dealerPrice:", dealerPrice, "for product:", dto.name);
         const tradePrice = Number((dealerPrice + dealerPrice * (commissionPercent / 100)).toFixed(2));
         const created = new this.productModel(Object.assign(Object.assign({}, dto), { commissionPercent,
             tradePrice, stock: (_b = dto.stock) !== null && _b !== void 0 ? _b : 0, reorderLevel: (_c = dto.reorderLevel) !== null && _c !== void 0 ? _c : 0, isActive: (_d = dto.isActive) !== null && _d !== void 0 ? _d : true }));
@@ -131,7 +130,6 @@ let ProductsService = class ProductsService {
         return categories.filter((c) => c && c.trim().length > 0).sort();
     }
     async searchProducts(companyId, query, limit) {
-        console.log(`Backend Product Search - Company ID: ${companyId}, Query: ${query}, Limit: ${limit}`);
         const searchFilter = { companyId };
         if (query) {
             searchFilter.$or = [
@@ -145,17 +143,6 @@ let ProductsService = class ProductsService {
             .sort({ stock: -1, name: 1 })
             .limit(limit)
             .exec();
-        results.forEach((r) => console.log("Backend: Product result companyId (raw) before return:", r.companyId));
-        console.log(`Backend Product Search Results for Query '${query}' and Company '${companyId}' (Final):`, results.map((r) => {
-            var _a;
-            return ({
-                id: r._id,
-                name: r.name,
-                sku: r.sku,
-                stock: r.stock,
-                companyId: (_a = r.companyId) === null || _a === void 0 ? void 0 : _a.name,
-            });
-        }));
         return results;
     }
 };

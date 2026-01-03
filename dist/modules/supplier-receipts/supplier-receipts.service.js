@@ -145,9 +145,7 @@ let SupplierReceiptsService = class SupplierReceiptsService {
         }
     }
     async getSupplierBalance(companyId) {
-       
         const matchCondition = companyId ? { companyId: companyId } : {};
-        
         const supplierPayments = await this.supplierPaymentModel.aggregate([
             { $match: matchCondition },
             {
@@ -178,7 +176,6 @@ let SupplierReceiptsService = class SupplierReceiptsService {
             totalReceived: data.totalReceived,
             receiptCount: data.receiptCount,
         }));
-      
         const balanceMap = new Map();
         supplierPayments.forEach((payment) => {
             balanceMap.set(payment._id.toString(), {
@@ -218,7 +215,6 @@ let SupplierReceiptsService = class SupplierReceiptsService {
     }
     async findAllWithFilters(filters) {
         const { companyId, startDate, endDate, search, page, limit } = filters;
-      
         const query = {};
         if (companyId) {
             query.companyId = companyId;
@@ -244,7 +240,6 @@ let SupplierReceiptsService = class SupplierReceiptsService {
             .exec();
         const receiptsRaw = receipts.map((receipt) => receipt.toObject());
         const totalReceiptsValue = receiptsRaw.reduce((sum, r) => sum + r.totalValue, 0);
-       
         return {
             receipts: receiptsRaw,
             total,
@@ -255,7 +250,6 @@ let SupplierReceiptsService = class SupplierReceiptsService {
         };
     }
     async testBalance(companyId) {
-        
         if (!companyId) {
             return { error: "companyId required" };
         }
@@ -267,7 +261,6 @@ let SupplierReceiptsService = class SupplierReceiptsService {
                     .select("amount")
                     .then((docs) => {
                     const sum = docs.reduce((sum, doc) => sum + doc.amount, 0);
-                    
                     return sum;
                 }),
                 this.supplierReceiptModel
@@ -275,12 +268,10 @@ let SupplierReceiptsService = class SupplierReceiptsService {
                     .select("totalValue")
                     .then((docs) => {
                     const sum = docs.reduce((sum, doc) => sum + doc.totalValue, 0);
-                    
                     return sum;
                 }),
             ]);
             const balance = totalReceived - totalPaid;
-            
             return {
                 companyId,
                 totalPaid,

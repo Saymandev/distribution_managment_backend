@@ -1,10 +1,13 @@
-import { SRIssuesService } from "./sr-issues.service";
 import { CreateSRIssueDto } from "./dto/create-sr-issue.dto";
+import { SRIssuesService } from "./sr-issues.service";
 export declare class SRIssuesController {
     private readonly srIssuesService;
     constructor(srIssuesService: SRIssuesService);
     create(createSRIssueDto: CreateSRIssueDto): Promise<import("../../database/schemas/sr-issue.schema").SRIssue>;
-    findAll(srId?: string): Promise<import("../../database/schemas/sr-issue.schema").SRIssue[]>;
+    findAll(srId?: string, page?: string, limit?: string): Promise<{
+        issues: import("../../database/schemas/sr-issue.schema").SRIssue[];
+        pagination: any;
+    }>;
     getOptimized(companyId?: string): Promise<{
         issues: import("../../database/schemas/sr-issue.schema").SRIssue[];
         salesReps: import("../../database/schemas/salesrep.schema").SalesRep[];

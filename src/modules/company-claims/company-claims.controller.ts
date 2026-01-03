@@ -26,15 +26,22 @@ export class CompanyClaimsController {
   @Get()
   findAll(
     @Query("companyId") companyId?: string,
-    @Query("page") page: number = 1,
-    @Query("limit") limit: number = 10,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
     @Query("timePeriod") timePeriod: "all" | "week" | "month" | "year" = "all",
     @Query("searchQuery") searchQuery?: string,
   ) {
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 10;
+
+    // Ensure valid numbers, fallback to defaults if NaN
+    const safePage = isNaN(pageNum) || pageNum < 1 ? 1 : pageNum;
+    const safeLimit = isNaN(limitNum) || limitNum < 1 ? 10 : limitNum;
+
     return this.companyClaimsService.findAll(
       companyId,
-      Number(page),
-      Number(limit),
+      safePage,
+      safeLimit,
       timePeriod,
       searchQuery,
     );

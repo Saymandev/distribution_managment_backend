@@ -9,6 +9,7 @@ export declare class AuthService {
     validateUser(email: string, password: string): Promise<any>;
     login(loginDto: LoginDto): Promise<{
         access_token: string;
+        refresh_token: string;
         user: {
             id: any;
             email: any;
@@ -20,5 +21,9 @@ export declare class AuthService {
         _id: import("mongoose").Types.ObjectId;
     }> & {
         __v: number;
+    }>;
+    refreshToken(refreshToken: string): Promise<{
+        access_token: string;
+        refresh_token: string;
     }>;
 }

@@ -1,15 +1,15 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  Body,
   Param,
+  Post,
   Query,
   UseGuards,
 } from "@nestjs/common";
-import { SRIssuesService } from "./sr-issues.service";
-import { CreateSRIssueDto } from "./dto/create-sr-issue.dto";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
+import { CreateSRIssueDto } from "./dto/create-sr-issue.dto";
+import { SRIssuesService } from "./sr-issues.service";
 
 @Controller("sr-issues")
 @UseGuards(JwtAuthGuard)
@@ -22,11 +22,18 @@ export class SRIssuesController {
   }
 
   @Get()
-  findAll(@Query("srId") srId?: string) {
+  findAll(
+    @Query("srId") srId?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ) {
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 10;
+
     if (srId) {
-      return this.srIssuesService.findBySR(srId);
+      return this.srIssuesService.findBySR(srId, pageNum, limitNum);
     }
-    return this.srIssuesService.findAll();
+    return this.srIssuesService.findAll(pageNum, limitNum);
   }
 
   @Get("optimized")

@@ -20,6 +20,7 @@ import {
   SRPaymentSchema,
 } from "../../database/schemas/sr-payment.schema";
 import { NotificationsModule } from "../notifications/notifications.module";
+import { ProductReturnsModule } from "../product-returns/product-returns.module";
 import { SRPaymentsController } from "./sr-payments.controller";
 import { SRPaymentsService } from "./sr-payments.service";
 
@@ -35,6 +36,7 @@ import { SRPaymentsService } from "./sr-payments.service";
       { name: ProductReturn.name, schema: ProductReturnSchema },
     ]),
     NotificationsModule,
+    ProductReturnsModule,
   ],
   controllers: [SRPaymentsController],
   providers: [SRPaymentsService],

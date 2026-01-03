@@ -5,7 +5,10 @@ export declare class SRPaymentsController {
     private readonly srPaymentsService;
     constructor(srPaymentsService: SRPaymentsService);
     create(createSRPaymentDto: CreateSRPaymentDto): Promise<import("../../database/schemas/sr-payment.schema").SRPayment>;
-    findAll(srId?: string): Promise<any[]>;
+    findAll(srId?: string, page?: string, limit?: string): Promise<{
+        payments: any[];
+        pagination: any;
+    }>;
     getOptimized(companyId?: string): Promise<any>;
     findOne(id: string): Promise<any>;
     update(id: string, updateSRPaymentDto: UpdateSRPaymentDto): Promise<import("../../database/schemas/sr-payment.schema").SRPayment>;

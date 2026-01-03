@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model } from "mongoose";
+import { Model, Types } from "mongoose";
 import {
   CompanyClaim,
   CompanyClaimDocument,
@@ -145,9 +145,27 @@ export class SRIssuesService {
     return issue.save();
   }
 
-  async findAll(): Promise<SRIssue[]> {
+  async findAll(
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{ issues: SRIssue[]; pagination: any }> {
     const { issues } = await this.getOptimized();
-    return issues;
+    const totalItems = issues.length;
+    const totalPages = Math.ceil(totalItems / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+
+    return {
+      issues: issues.slice(startIndex, endIndex),
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems,
+        itemsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+    };
   }
 
   async findOne(id: string): Promise<SRIssue> {
@@ -163,7 +181,13 @@ export class SRIssuesService {
 
     // Calculate total received for this single issue
     const paymentsForIssue = await this.srPaymentModel
-      .find({ issueId: issue._id })
+      .find({
+        $or: [
+          { issueId: issue._id },
+          { issueId: String(issue._id) },
+          { issueId: new Types.ObjectId(String(issue._id)) },
+        ],
+      })
       .lean()
       .exec();
     const totalReceivedAmount = paymentsForIssue.reduce(
@@ -192,7 +216,25 @@ export class SRIssuesService {
     }
 
     adjustedTotalAmount = Math.max(0, adjustedTotalAmount);
-    const due = Math.max(0, adjustedTotalAmount - totalReceivedAmount);
+
+    // Calculate company claims and customer dues for this issue
+    const companyClaimsForIssue = paymentsForIssue.reduce(
+      (sum, payment) => sum + (payment.companyClaim || 0),
+      0,
+    );
+    const customerDuesForIssue = paymentsForIssue.reduce(
+      (sum, payment) => sum + (payment.customerDue || 0),
+      0,
+    );
+
+    // Due calculation: if there are outstanding customer dues, the issue is not fully paid
+    const due =
+      customerDuesForIssue > 0
+        ? customerDuesForIssue
+        : Math.max(
+            0,
+            adjustedTotalAmount - totalReceivedAmount - companyClaimsForIssue,
+          );
 
     // Enrich the single issue object
     const enrichedIssue = {
@@ -205,15 +247,48 @@ export class SRIssuesService {
     return enrichedIssue;
   }
 
-  async findBySR(srId: string): Promise<SRIssue[]> {
+  async findBySR(
+    srId: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{ issues: SRIssue[]; pagination: any; totals: any }> {
     const { issues } = await this.getOptimized();
-    return issues.filter((issue) => {
+    const filteredIssues = issues.filter((issue) => {
       const issueSrId =
         typeof issue.srId === "string"
           ? issue.srId
           : (issue.srId as any)?._id?.toString();
       return issueSrId === srId;
     });
+
+    // Calculate totals before pagination
+    const totalAmount = filteredIssues.reduce(
+      (sum, issue) => sum + (issue.totalAmount || 0),
+      0,
+    );
+
+    // Apply pagination
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedIssues = filteredIssues.slice(startIndex, endIndex);
+
+    const totalItems = filteredIssues.length;
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      issues: paginatedIssues,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems,
+        itemsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+      totals: {
+        totalAmount,
+      },
+    };
   }
 
   // Optimized method to get all issues with calculated due amounts (no N+1 queries)
@@ -309,7 +384,44 @@ export class SRIssuesService {
       }
 
       adjustedTotalAmount = Math.max(0, adjustedTotalAmount);
-      const due = Math.max(0, adjustedTotalAmount - totalReceivedAmount);
+
+      // Calculate outstanding company claims and customer dues for this issue
+      // Only include unpaid claims and unsettled customer dues
+      let companyClaimsForIssue = 0;
+      let customerDuesForIssue = 0;
+
+      paymentsForIssue.forEach((payment) => {
+        // Only include customer dues that haven't been settled (customerDue > 0 means outstanding)
+        if (payment.customerDue && payment.customerDue > 0) {
+          customerDuesForIssue += payment.customerDue;
+        }
+
+        // For company claims, check if the corresponding claim is still unpaid
+        if (payment.companyClaim && payment.companyClaim > 0) {
+          // Find if there's a corresponding claim for this payment that's still pending
+          const relatedClaim = claims.find((claim) => {
+            const claimPaymentId =
+              typeof claim.paymentId === "string"
+                ? claim.paymentId
+                : String((claim.paymentId as any)?._id || claim.paymentId);
+            const paymentId = String((payment as any)._id);
+            return claimPaymentId === paymentId && claim.status !== "paid";
+          });
+
+          // Only include company claims that haven't been paid yet
+          if (relatedClaim) {
+            companyClaimsForIssue += payment.companyClaim;
+          }
+        }
+      });
+
+      // Due calculation: If there are outstanding customer dues or unpaid company claims,
+      // include both as due amounts. Otherwise use traditional calculation.
+      const hasOutstandingDues =
+        customerDuesForIssue > 0 || companyClaimsForIssue > 0;
+      const due = hasOutstandingDues
+        ? customerDuesForIssue + companyClaimsForIssue
+        : Math.max(0, adjustedTotalAmount - totalReceivedAmount);
 
       dueAmounts[issueId] = {
         totalAmount: adjustedTotalAmount,

@@ -42,13 +42,6 @@ let ReportsService = class ReportsService {
         today.setHours(0, 0, 0, 0);
         const endOfToday = new Date();
         endOfToday.setHours(23, 59, 59, 999);
-        console.log("📊 Dashboard query:", {
-            companyId,
-            today: today.toISOString(),
-            endOfToday: endOfToday.toISOString(),
-            todayLocal: today.toString(),
-            endOfTodayLocal: endOfToday.toString(),
-        });
         const allPayments = await this.srPaymentModel
             .find()
             .limit(5)
@@ -64,28 +57,6 @@ let ReportsService = class ReportsService {
             .limit(5)
             .select("date amount")
             .exec();
-        console.log("📊 Sample data check:", {
-            payments: allPayments.map((p) => ({
-                date: p.paymentDate,
-                total: p.totalReceived,
-            })),
-            claims: allClaims.map((c) => {
-                var _a;
-                return ({
-                    date: c.createdAt,
-                    paidDate: c.paidDate,
-                    paidDateISO: c.paidDate
-                        ? new Date(c.paidDate).toISOString()
-                        : null,
-                    status: c.status,
-                    totalClaim: c.totalClaim,
-                    net: c.netFromCompany,
-                    company: c.companyId,
-                    companyStr: (_a = c.companyId) === null || _a === void 0 ? void 0 : _a.toString(),
-                });
-            }),
-            expenses: allExpenses.map((e) => ({ date: e.date, amount: e.amount })),
-        });
         const claimMatch = {};
         if (companyId) {
             claimMatch.companyId = companyId;
@@ -147,7 +118,6 @@ let ReportsService = class ReportsService {
                 },
             },
         ]);
-        console.log("🔍 All Claims Stats Result:", allClaimsStats);
         const todayPaidClaims = await this.companyClaimModel.aggregate([
             { $match: paidClaimMatch },
             {
@@ -157,7 +127,6 @@ let ReportsService = class ReportsService {
                 },
             },
         ]);
-        console.log("🔍 Today Paid Claims Result:", todayPaidClaims);
         const todayExpenses = await this.expenseModel.aggregate([
             {
                 $match: {
@@ -181,14 +150,6 @@ let ReportsService = class ReportsService {
         const paidClaimAmount = todayPaidClaims.length > 0 ? todayPaidClaims[0].paidClaimAmount || 0 : 0;
         const expensesTotal = todayExpenses.length > 0 ? todayExpenses[0].total || 0 : 0;
         const netProfit = paidClaimAmount - expensesTotal;
-        console.log("📊 Dashboard results:", {
-            totalClaimAmount: claimsStats.totalClaimAmount,
-            pendingClaimAmount: claimsStats.pendingClaimAmount,
-            paidClaimAmount,
-            netClaimAmount: claimsStats.netClaimAmount,
-            expensesTotal,
-            netProfit,
-        });
         return {
             today: {
                 totalClaimAmount: claimsStats.totalClaimAmount || 0,
@@ -238,14 +199,6 @@ let ReportsService = class ReportsService {
                     .select("_id")
                     .exec();
                 const productIds = companyProducts.map((p) => p._id.toString());
-                console.log(`📊 Day ${i} (${days[i]}) - Company filtering:`, {
-                    companyId,
-                    companyIdObj: companyIdObj.toString(),
-                    productCount: productIds.length,
-                    productIds: productIds.map((p) => p.toString()).slice(0, 3),
-                    dayStart: dayStart.toISOString(),
-                    dayEnd: dayEnd.toISOString(),
-                });
                 const companyIssues = await this.srIssueModel
                     .find({
                     "items.productId": { $in: productIds },
@@ -253,10 +206,6 @@ let ReportsService = class ReportsService {
                     .select("_id")
                     .exec();
                 const issueIds = companyIssues.map((issue) => issue._id);
-                console.log(`📊 Day ${i} (${days[i]}) - Issues found:`, {
-                    issueCount: issueIds.length,
-                    issueIds: issueIds.map((id) => id.toString()).slice(0, 3),
-                });
                 if (issueIds.length === 0) {
                     daySRPayments = [];
                 }
@@ -276,10 +225,6 @@ let ReportsService = class ReportsService {
                             },
                         },
                     ]);
-                    console.log(`📊 Day ${i} (${days[i]}) - Payment query result:`, {
-                        matchCount: daySRPayments.length,
-                        total: daySRPayments.length > 0 ? daySRPayments[0].total : 0,
-                    });
                 }
             }
             else {
@@ -302,13 +247,6 @@ let ReportsService = class ReportsService {
                     },
                 },
             ]);
-            if (i === 3 && companyId) {
-                console.log(`📊 Day ${i} (${days[i]}) - Claims query:`, {
-                    claimMatch: JSON.stringify(claimMatch),
-                    claimCount: dayClaims.length,
-                    total: dayClaims.length > 0 ? dayClaims[0].total : 0,
-                });
-            }
             const dayExpenses = await this.expenseModel.aggregate([
                 { $match: expenseMatch },
                 {
@@ -329,7 +267,6 @@ let ReportsService = class ReportsService {
                 profit: Math.round(payments + claims - expenses),
             });
         }
-        console.log("📊 WEEKLY DATA:", JSON.stringify(weeklyData, null, 2));
         return weeklyData;
     }
     async getMonthlyData(companyId) {
@@ -443,16 +380,15 @@ let ReportsService = class ReportsService {
                 profit: Math.round(profit),
             });
         }
-        console.log("📊 MONTHLY DATA:", JSON.stringify(weeks, null, 2));
         return weeks;
     }
     async getProfitLoss(companyId, startDate, endDate) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const endOfToday = new Date();
-        endOfToday.setHours(23, 59, 59, 999);
-        let finalStartDate = startDate || today;
-        let finalEndDate = endDate || endOfToday;
+        var _a;
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        let finalStartDate = startDate || startOfMonth;
+        let finalEndDate = endDate || endOfMonth;
         if (startDate) {
             finalStartDate = new Date(startDate);
             finalStartDate.setHours(0, 0, 0, 0);
@@ -481,21 +417,66 @@ let ReportsService = class ReportsService {
                 $group: {
                     _id: null,
                     totalReceived: { $sum: "$totalReceived" },
+                    totalExpected: { $sum: "$totalExpected" },
                 },
             },
         ]);
-        const companyClaims = await this.companyClaimModel.aggregate([
-            { $match: matchConditions },
+        const outstandingReceivables = await this.srPaymentModel.aggregate([
+            {
+                $match: srPaymentsMatch,
+            },
             {
                 $group: {
-                    _id: companyId ? null : "$companyId",
-                    totalNetFromCompany: { $sum: "$netFromCompany" },
-                    totalDealerPrice: { $sum: "$totalDealerPrice" },
-                    totalCommission: { $sum: "$totalCommission" },
-                    totalSRPayment: { $sum: "$totalSRPayment" },
+                    _id: null,
+                    totalCustomerDue: { $sum: { $max: ["$customerDue", 0] } },
+                    totalUnpaid: {
+                        $sum: {
+                            $max: [{ $subtract: ["$totalExpected", "$totalReceived"] }, 0],
+                        },
+                    },
                 },
             },
         ]);
+        const customerDueAmount = outstandingReceivables.length > 0
+            ? outstandingReceivables[0].totalCustomerDue || 0
+            : 0;
+        const unpaidAmount = outstandingReceivables.length > 0
+            ? outstandingReceivables[0].totalUnpaid || 0
+            : 0;
+        const totalOutstandingReceivables = Math.max(customerDueAmount, unpaidAmount);
+        const dateFilteredMatch = Object.assign({}, matchConditions);
+        delete dateFilteredMatch.createdAt;
+        console.log("DEBUG - Claims query match:", Object.assign(Object.assign({}, dateFilteredMatch), { status: "pending" }));
+        const pendingClaims = await this.companyClaimModel
+            .find(Object.assign(Object.assign({}, dateFilteredMatch), { status: "pending" }))
+            .exec();
+        console.log("DEBUG - Found pending claims:", pendingClaims.length);
+        pendingClaims.forEach((c) => console.log("  ", c.claimNumber, ":", c.netFromCompany, "company:", c.companyId));
+        const totalNetFromCompany = pendingClaims
+            .filter((claim) => (claim.netFromCompany || 0) > 0)
+            .reduce((sum, claim) => sum + (claim.netFromCompany || 0), 0);
+        const companyGroups = pendingClaims.reduce((groups, claim) => {
+            var _a;
+            const companyId = claim.companyId;
+            const companyKey = typeof companyId === "string"
+                ? companyId
+                : ((_a = companyId === null || companyId === void 0 ? void 0 : companyId._id) === null || _a === void 0 ? void 0 : _a.toString()) || "unknown";
+            if (!groups[companyKey]) {
+                groups[companyKey] = {
+                    _id: companyKey,
+                    totalNetFromCompany: 0,
+                    totalDealerPrice: 0,
+                    totalCommission: 0,
+                    totalSRPayment: 0,
+                };
+            }
+            groups[companyKey].totalNetFromCompany += claim.netFromCompany || 0;
+            groups[companyKey].totalDealerPrice += claim.totalDealerPrice || 0;
+            groups[companyKey].totalCommission += 0;
+            groups[companyKey].totalSRPayment += claim.totalSRPayment || 0;
+            return groups;
+        }, {});
+        const companyClaims = Object.values(companyGroups);
         const expensesMatch = {
             date: {
                 $gte: finalStartDate,
@@ -511,43 +492,122 @@ let ReportsService = class ReportsService {
                 },
             },
         ]);
+        const inventoryValue = await this.productModel.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    totalStockValue: {
+                        $sum: { $multiply: ["$stock", "$dealerPrice"] },
+                    },
+                },
+            },
+        ]);
+        const supplierPurchases = companyClaims.reduce((sum, claim) => sum + (claim.totalDealerPrice || 0), 0);
         const totalSRPayments = srPayments.length > 0 ? srPayments[0].totalReceived : 0;
+        const totalSalesValue = srPayments.length > 0 ? srPayments[0].totalExpected : 0;
         const totalExpenses = expenses.length > 0 ? expenses[0].total : 0;
+        const currentInventoryValue = inventoryValue.length > 0 ? inventoryValue[0].totalStockValue : 0;
         if (companyId) {
             const claim = companyClaims.length > 0 ? companyClaims[0] : null;
             const totalNetFromCompany = claim ? claim.totalNetFromCompany : 0;
-            const totalIncome = totalSRPayments + totalNetFromCompany;
-            const netProfit = totalIncome - totalExpenses;
+            const companyPurchases = claim ? claim.totalDealerPrice : 0;
+            const totalRevenue = totalSalesValue;
+            const cogs = companyPurchases - totalNetFromCompany;
+            const grossProfit = totalRevenue - cogs;
+            const netProfit = grossProfit - totalExpenses;
+            const companies = await this.companyModel
+                .find({ _id: companyId })
+                .select("_id name")
+                .exec();
+            const companyMap = new Map(companies.map((c) => [c._id.toString(), c.name]));
             return {
                 companyId,
-                income: {
-                    srPayments: totalSRPayments,
-                    netFromCompany: totalNetFromCompany,
-                    total: totalIncome,
+                period: {
+                    startDate: finalStartDate,
+                    endDate: finalEndDate,
                 },
-                expenses: totalExpenses,
-                netProfit,
+                revenue: {
+                    totalSalesValue,
+                    cashReceived: totalSRPayments,
+                    outstandingReceivables: totalOutstandingReceivables,
+                    total: totalRevenue,
+                },
+                cogs: {
+                    purchases: companyPurchases,
+                    discountsReceived: totalNetFromCompany,
+                    netCOGS: cogs,
+                },
+                profitability: {
+                    grossProfit,
+                    operatingExpenses: totalExpenses,
+                    netProfit,
+                },
+                inventory: {
+                    currentValue: currentInventoryValue,
+                },
+                outstanding: {
+                    customerDues: totalOutstandingReceivables,
+                    supplierClaims: totalNetFromCompany,
+                },
+                byCompany: claim
+                    ? [
+                        {
+                            companyId: claim._id,
+                            companyName: companyMap.get(((_a = claim._id) === null || _a === void 0 ? void 0 : _a.toString()) || "") ||
+                                "Unknown Company",
+                            netFromCompany: claim.totalNetFromCompany,
+                            totalDealerPrice: claim.totalDealerPrice,
+                            totalCommission: claim.totalCommission,
+                            totalSRPayment: claim.totalSRPayment,
+                        },
+                    ]
+                    : [],
                 details: claim || {},
             };
         }
         else {
             const totalNetFromCompany = companyClaims.reduce((sum, c) => sum + c.totalNetFromCompany, 0);
-            const totalIncome = totalSRPayments + totalNetFromCompany;
-            const netProfit = totalIncome - totalExpenses;
+            const totalPurchases = companyClaims.reduce((sum, c) => sum + (c.totalDealerPrice || 0), 0);
+            const totalRevenue = totalSalesValue;
+            const cogs = totalPurchases - totalNetFromCompany;
+            const grossProfit = totalRevenue - cogs;
+            const netProfit = grossProfit - totalExpenses;
             const companyIds = companyClaims.map((c) => c._id).filter((id) => id);
             const companies = await this.companyModel
                 .find({ _id: { $in: companyIds } })
                 .select("_id name")
                 .exec();
             const companyMap = new Map(companies.map((c) => [c._id.toString(), c.name]));
-            return {
-                income: {
-                    srPayments: totalSRPayments,
-                    netFromCompany: totalNetFromCompany,
-                    total: totalIncome,
+            console.log("DEBUG - companyClaims:", companyClaims);
+            console.log("DEBUG - companyMap:", Array.from(companyMap.entries()));
+            const result = {
+                period: {
+                    startDate: finalStartDate,
+                    endDate: finalEndDate,
                 },
-                expenses: totalExpenses,
-                netProfit,
+                revenue: {
+                    totalSalesValue,
+                    cashReceived: totalSRPayments,
+                    outstandingReceivables: totalOutstandingReceivables,
+                    total: totalRevenue,
+                },
+                cogs: {
+                    purchases: totalPurchases,
+                    discountsReceived: totalNetFromCompany,
+                    netCOGS: cogs,
+                },
+                profitability: {
+                    grossProfit,
+                    operatingExpenses: totalExpenses,
+                    netProfit,
+                },
+                inventory: {
+                    currentValue: currentInventoryValue,
+                },
+                outstanding: {
+                    customerDues: totalOutstandingReceivables,
+                    supplierClaims: totalNetFromCompany,
+                },
                 byCompany: companyClaims.map((c) => {
                     var _a;
                     return ({
@@ -560,6 +620,8 @@ let ReportsService = class ReportsService {
                     });
                 }),
             };
+            console.log("DEBUG - result.byCompany:", result.byCompany);
+            return result;
         }
     }
     async getDueAmounts(companyId) {
@@ -641,42 +703,25 @@ let ReportsService = class ReportsService {
     async getFloorStockReport(companyId) {
         const productMatch = {};
         if (companyId) {
-            console.log("🏢 Filtering floor stock by company:", companyId);
             productMatch.$or = [
                 { companyId: new mongoose_2.Types.ObjectId(companyId) },
                 { companyId: companyId },
             ];
         }
         else {
-            console.log("🌍 No company filter - showing all products");
         }
         const products = await this.productModel
             .find(productMatch)
             .populate("companyId", "name code")
             .select("name sku companyId stock dealerPrice tradePrice unit")
             .exec();
-        console.log(`📦 Floor stock query - companyId:`, companyId);
-        console.log(`📦 Found ${products.length} products for floor stock`);
         if (products.length === 0) {
-            console.log("📦 No products found. Checking total products in DB...");
             const totalProducts = await this.productModel.countDocuments().exec();
-            console.log(`📦 Total products in DB: ${totalProducts}`);
         }
-        console.log("📊 Sample products:", products.slice(0, 3).map((p) => ({
-            name: p.name,
-            sku: p.sku,
-            stock: p.stock,
-            dealerPrice: p.dealerPrice,
-            tradePrice: p.tradePrice,
-            companyId: p.companyId,
-        })));
         const floorStockData = products.map((p) => {
             const dealerPrice = p.dealerPrice || 0;
             const stock = p.stock || 0;
             const floorStockValue = stock * dealerPrice;
-            if (stock > 0 && dealerPrice === 0) {
-                console.log(`⚠️ Product "${p.name}" has stock (${stock}) but no dealerPrice - floor value = 0`);
-            }
             return {
                 productId: p._id,
                 productName: p.name,
@@ -835,39 +880,27 @@ let ReportsService = class ReportsService {
         };
     }
     async getMonthlyReport(companyId, startDate, endDate) {
-        var _a;
-        console.log(`📊 Monthly report service called with companyId: "${companyId}"`);
         const now = new Date();
         const defaultStartDate = new Date(now.getFullYear(), now.getMonth() - 5, 1);
         const defaultEndDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
         const finalStartDate = startDate || defaultStartDate;
         const finalEndDate = endDate || defaultEndDate;
-        console.log(`📊 Monthly report query - start: ${finalStartDate.toISOString()}, end: ${finalEndDate.toISOString()}, companyId: "${companyId}"`);
         const floorStockData = await this.getFloorStockReport(companyId);
         const pendingClaimsData = await this.getPendingCompanyClaims(companyId);
-        console.log(`📊 Pending claims data:`, {
-            totalPendingClaims: pendingClaimsData.totalPendingClaims,
-            totalClaimCount: pendingClaimsData.totalClaimCount,
-            companiesCount: ((_a = pendingClaimsData.companies) === null || _a === void 0 ? void 0 : _a.length) || 0,
-        });
         const monthlyData = [];
         const startYear = finalStartDate.getFullYear();
         const startMonth = finalStartDate.getMonth();
         const endYear = finalEndDate.getFullYear();
         const endMonth = finalEndDate.getMonth();
-        console.log(`📊 Month generation: startYear=${startYear}, startMonth=${startMonth}, endYear=${endYear}, endMonth=${endMonth}`);
         for (let year = startYear; year <= endYear; year++) {
             const monthStart = year === startYear ? startMonth : 0;
             const monthEnd = year === endYear ? endMonth : 11;
-            console.log(`📊 Year ${year}: monthStart=${monthStart}, monthEnd=${monthEnd}`);
             for (let month = monthStart; month <= monthEnd; month++) {
-                console.log(`📊 Processing month ${month + 1} for year ${year}`);
                 const monthStartDate = new Date(year, month, 1, 0, 0, 0, 0);
                 const monthEndDate = new Date(year, month + 1, 1, 0, 0, 0, 0);
                 const periodYear = monthStartDate.getFullYear();
                 const periodMonth = String(monthStartDate.getMonth() + 1).padStart(2, "0");
                 const period = `${periodYear}-${periodMonth}`;
-                console.log(`📊 Processing month ${month} (${period}): ${monthStartDate.toISOString()} to ${monthEndDate.toISOString()}`);
                 const [salesData, expenseData, supplierPaymentData, inventoryData, duesData,] = await Promise.all([
                     this.getSalesForPeriod(companyId, monthStartDate, monthEndDate),
                     this.getExpensesForPeriod(companyId, monthStartDate, monthEndDate),
@@ -875,9 +908,7 @@ let ReportsService = class ReportsService {
                     this.getInventoryReceivedForPeriod(companyId, monthStartDate, monthEndDate),
                     this.getCustomerDuesForPeriod(companyId, monthStartDate, monthEndDate),
                 ]);
-                console.log(`📊 Adding to monthlyData: period=${period}, sales=${salesData.totalSales}, expenses=${expenseData.total}, dues=${duesData.totalCustomerDue}`);
                 const cogs = Math.min(salesData.totalSales, inventoryData.totalValue);
-                console.log(`🧮 Month ${period}: Sales=${salesData.totalSales}, Inventory=${inventoryData.totalValue}, COGS=${cogs}`);
                 monthlyData.push({
                     period: period,
                     totalSales: salesData.totalSales,
@@ -893,7 +924,6 @@ let ReportsService = class ReportsService {
             }
         }
         if (monthlyData.length === 0) {
-            console.log("📊 Date range too narrow, showing last 6 months");
             for (let i = 5; i >= 0; i--) {
                 const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
                 const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
@@ -921,22 +951,9 @@ let ReportsService = class ReportsService {
         }
         const currentMonthData = monthlyData[monthlyData.length - 1];
         const previousMonthData = monthlyData[monthlyData.length - 2] || currentMonthData;
-        console.log("📊 Monthly data found:", monthlyData.map((m) => ({
-            period: m.period,
-            sales: m.totalSales,
-            expenses: m.totalExpenses,
-            dues: m.customerDues,
-        })));
         const hasAnyTransactionData = monthlyData.some((m) => m.totalSales > 0 || m.totalExpenses > 0 || m.customerDues > 0);
         const hasProducts = floorStockData.totalProducts > 0;
-        console.log(`📊 hasAnyTransactionData: ${hasAnyTransactionData}, hasProducts: ${hasProducts}`);
-        console.log(`📊 currentMonthData before return:`, {
-            period: currentMonthData === null || currentMonthData === void 0 ? void 0 : currentMonthData.period,
-            customerDues: currentMonthData === null || currentMonthData === void 0 ? void 0 : currentMonthData.customerDues,
-            customerCount: currentMonthData === null || currentMonthData === void 0 ? void 0 : currentMonthData.customerCount,
-        });
         if (!hasAnyTransactionData && !hasProducts) {
-            console.log("📊 No products and no transactions found, using sample data for monthly reports");
             const sampleMonthlyData = [];
             for (let i = 5; i >= 0; i--) {
                 const monthDate = new Date(finalStartDate);
@@ -1055,7 +1072,6 @@ let ReportsService = class ReportsService {
                 ]
                 : []),
         ];
-        console.log(`🛒 Sales aggregation for company ${companyId}, date range: ${startDate === null || startDate === void 0 ? void 0 : startDate.toISOString().slice(0, 7)}-${endDate === null || endDate === void 0 ? void 0 : endDate.toISOString().slice(0, 7)}`);
         const debugPipeline = [
             ...pipeline,
             {
@@ -1077,7 +1093,6 @@ let ReportsService = class ReportsService {
             { $match: matchConditions },
             { $count: "stage1_count" },
         ]);
-        console.log(`🛒 DEBUG Stage 1 (date filter):`, stage1);
         const stage2 = await this.srIssueModel.aggregate([
             { $match: matchConditions },
             {
@@ -1090,7 +1105,6 @@ let ReportsService = class ReportsService {
             },
             { $count: "stage2_count" },
         ]);
-        console.log(`🛒 DEBUG Stage 2 (after lookup):`, stage2);
         const stage3 = await this.srIssueModel.aggregate([
             { $match: matchConditions },
             {
@@ -1110,13 +1124,7 @@ let ReportsService = class ReportsService {
                 },
             },
         ]);
-        console.log(`🛒 DEBUG Stage 3 (sample lookup results):`, stage3);
         const allSalesReps = await this.salesRepModel.find({}).limit(10);
-        console.log(`🛒 DEBUG All sales reps in database:`, allSalesReps.map((sr) => ({
-            _id: sr._id.toString(),
-            name: sr.name,
-            companyId: sr.companyId,
-        })));
         const stage4 = await this.srIssueModel.aggregate([
             { $match: matchConditions },
             {
@@ -1130,9 +1138,7 @@ let ReportsService = class ReportsService {
             { $match: { srInfo: { $ne: [] } } },
             { $count: "stage4_count" },
         ]);
-        console.log(`🛒 DEBUG Stage 4 (lookup successful):`, stage4);
         const debugResult = await this.srIssueModel.aggregate(debugPipeline);
-        console.log(`🛒 DEBUG: SR issues after lookup/company filter:`, debugResult);
         pipeline.push({ $unwind: "$items" }, {
             $group: {
                 _id: null,
@@ -1143,29 +1149,15 @@ let ReportsService = class ReportsService {
             },
         });
         const sales = await this.srIssueModel.aggregate(pipeline);
-        console.log(`🛒 Sales aggregation pipeline:`, JSON.stringify(pipeline, null, 2));
         const salesResult = await this.srIssueModel.aggregate(pipeline);
-        console.log(`🛒 Sales aggregation result for ${startDate === null || startDate === void 0 ? void 0 : startDate.toISOString().slice(0, 7)}-${endDate === null || endDate === void 0 ? void 0 : endDate.toISOString().slice(0, 7)}:`, salesResult);
         const rawIssues = await this.srIssueModel
             .find({
             issueDate: { $gte: startDate, $lte: endDate },
         })
             .populate("srId")
             .limit(5);
-        console.log(`🛒 Raw SR issues in date range (${startDate === null || startDate === void 0 ? void 0 : startDate.toISOString().slice(0, 7)}-${endDate === null || endDate === void 0 ? void 0 : endDate.toISOString().slice(0, 7)}):`, rawIssues.map((i) => {
-            var _a, _b;
-            return ({
-                id: i._id,
-                date: i.issueDate,
-                total: i.totalAmount,
-                srId: i.srId,
-                srName: (_a = i.srId) === null || _a === void 0 ? void 0 : _a.name,
-                srCompanyId: (_b = i.srId) === null || _b === void 0 ? void 0 : _b.companyId,
-            });
-        }));
         const targetCompanyId = "6952be28ed9c95d9d860fe54";
         const issuesWithCompanyMatch = rawIssues.filter((i) => { var _a, _b; return ((_b = (_a = i.srId) === null || _a === void 0 ? void 0 : _a.companyId) === null || _b === void 0 ? void 0 : _b.toString()) === targetCompanyId; });
-        console.log(`🛒 SR issues matching company ${targetCompanyId}: ${issuesWithCompanyMatch.length}/${rawIssues.length}`);
         return {
             totalSales: salesResult.length > 0 ? salesResult[0].totalSales || 0 : 0,
             count: salesResult.length > 0 ? salesResult[0].count || 0 : 0,
@@ -1188,7 +1180,6 @@ let ReportsService = class ReportsService {
                 },
             },
         ]);
-        console.log(`💰 Expenses aggregation result for ${startDate === null || startDate === void 0 ? void 0 : startDate.toISOString().slice(0, 7)}-${endDate === null || endDate === void 0 ? void 0 : endDate.toISOString().slice(0, 7)}:`, expenses);
         return {
             total: expenses.length > 0 ? expenses[0].total || 0 : 0,
         };
@@ -1210,21 +1201,12 @@ let ReportsService = class ReportsService {
                 },
             },
         ]);
-        console.log(`💳 Supplier payments aggregation result for ${startDate === null || startDate === void 0 ? void 0 : startDate.toISOString().slice(0, 7)}-${endDate === null || endDate === void 0 ? void 0 : endDate.toISOString().slice(0, 7)}:`, payments);
         const rawPayments = await this.supplierPaymentModel
             .find({
             paymentDate: { $gte: startDate, $lte: endDate },
         })
             .limit(5);
-        console.log(`💳 Raw supplier payments in date range:`, rawPayments.map((p) => ({
-            id: p._id,
-            amount: p.amount,
-            date: p.paymentDate,
-            paymentNumber: p.paymentNumber,
-            companyId: p.companyId,
-        })));
         const paymentsMatchingCompany = rawPayments.filter((p) => { var _a; return ((_a = p.companyId) === null || _a === void 0 ? void 0 : _a.toString()) === companyId; });
-        console.log(`💳 Supplier payments matching company ${companyId}: ${paymentsMatchingCompany.length}/${rawPayments.length}`);
         return {
             total: payments.length > 0 ? payments[0].total || 0 : 0,
         };
@@ -1240,8 +1222,6 @@ let ReportsService = class ReportsService {
                 { companyId: companyId },
             ];
         }
-        console.log(`📦 Inventory received query for company ${companyId}, date range: ${startDate === null || startDate === void 0 ? void 0 : startDate.toISOString()} to ${endDate === null || endDate === void 0 ? void 0 : endDate.toISOString()}`);
-        console.log(`📦 Match conditions:`, JSON.stringify(matchConditions, null, 2));
         const receipts = await this.supplierReceiptModel.aggregate([
             { $match: matchConditions },
             {
@@ -1251,24 +1231,15 @@ let ReportsService = class ReportsService {
                 },
             },
         ]);
-        console.log(`📦 Inventory received aggregation result for ${startDate === null || startDate === void 0 ? void 0 : startDate.toISOString().slice(0, 7)}-${endDate === null || endDate === void 0 ? void 0 : endDate.toISOString().slice(0, 7)}:`, receipts);
         const allReceipts = await this.supplierReceiptModel
             .find(matchConditions)
             .limit(5);
-        console.log(`📦 Sample receipts found:`, allReceipts.map((r) => ({
-            receiptNumber: r.receiptNumber,
-            companyId: r.companyId,
-            totalValue: r.totalValue,
-            receiptDate: r.receiptDate,
-        })));
         return {
             totalValue: receipts.length > 0 ? receipts[0].totalValue || 0 : 0,
         };
     }
     async getCustomerDuesForPeriod(companyId, startDate, endDate) {
-        console.log(`👥 Getting customer dues for period: ${startDate === null || startDate === void 0 ? void 0 : startDate.toISOString()} to ${endDate === null || endDate === void 0 ? void 0 : endDate.toISOString()}, company: ${companyId}`);
         const paymentMatch = {};
-        console.log(`📅 TEMP: Skipping date filtering for debugging`);
         if (companyId) {
             const companyProducts = await this.productModel
                 .find({
@@ -1281,13 +1252,10 @@ let ReportsService = class ReportsService {
                 .select("_id")
                 .exec();
             const productIds = companyProducts.map((p) => p._id.toString());
-            console.log(`🏢 Company ${companyId} has ${companyProducts.length} products:`, productIds);
             if (productIds.length > 0) {
                 paymentMatch["items.productId"] = { $in: productIds };
-                console.log(`🏢 Filtering customer dues by company ${companyId}, applying filter: ${JSON.stringify(paymentMatch)}`);
             }
             else {
-                console.log(`🏢 No products found for company ${companyId}, returning empty customer dues`);
                 return {
                     totalCustomerDue: 0,
                     customerCount: 0,
@@ -1295,15 +1263,12 @@ let ReportsService = class ReportsService {
             }
         }
         else {
-            console.log(`🌍 Showing customer dues across all companies`);
         }
         const payments = await this.srPaymentModel
             .find(paymentMatch)
             .sort({ paymentDate: -1 })
             .exec();
-        console.log(`Found ${payments.length} payments for customer dues calculation`);
         const paymentsWithCustomerInfo = payments.filter((payment) => { var _a; return (_a = payment.customerInfo) === null || _a === void 0 ? void 0 : _a.name; });
-        console.log(`Found ${paymentsWithCustomerInfo.length} payments with customer info`);
         const customerDues = new Map();
         paymentsWithCustomerInfo.forEach((payment) => {
             var _a;
@@ -1324,7 +1289,6 @@ let ReportsService = class ReportsService {
         });
         const customersArray = Array.from(customerDues.values());
         const totalCustomerDue = customersArray.reduce((sum, customer) => sum + customer.totalDue, 0);
-        console.log(`👥 Customer dues result: total=${totalCustomerDue}, customers=${customersArray.length}`);
         return {
             totalCustomerDue,
             customerCount: customersArray.length,
@@ -1341,35 +1305,18 @@ let ReportsService = class ReportsService {
             .find(claimMatch)
             .select("companyId totalCompanyClaim totalDealerPrice netFromCompany status")
             .exec();
-        console.log(`📋 Pending claims query - companyId:`, companyId, `match:`, claimMatch);
-        console.log(`📋 Found ${claims.length} pending claims`);
         if (claims.length > 0) {
-            console.log(`📋 Sample claims:`, claims.slice(0, 3).map((c) => ({
-                id: c._id,
-                companyId: c.companyId,
-                totalCompanyClaim: c.totalCompanyClaim,
-                status: c.status,
-            })));
         }
         else {
             const allClaims = await this.companyClaimModel
                 .find({ status: { $in: ["pending", "approved"] } })
                 .limit(5);
-            console.log(`📋 All pending claims in DB (no company filter):`, allClaims.map((c) => ({
-                id: c._id,
-                companyId: c.companyId,
-                totalCompanyClaim: c.totalCompanyClaim,
-                status: c.status,
-            })));
         }
         if (claims.length === 0) {
-            console.log("📋 No pending claims found. Checking total claims in DB...");
             const totalClaims = await this.companyClaimModel.countDocuments().exec();
-            console.log(`📋 Total claims in DB: ${totalClaims}`);
             const statusCounts = await this.companyClaimModel
                 .aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }])
                 .exec();
-            console.log("📋 Claim status distribution:", statusCounts);
             return {
                 companies: [],
                 totalPendingClaims: 0,
@@ -1423,7 +1370,6 @@ let ReportsService = class ReportsService {
         const end = endDate || new Date();
         start.setHours(0, 0, 0, 0);
         end.setHours(23, 59, 59, 999);
-        console.log(`💰 Daily financial query - start: ${start.toISOString()}, end: ${end.toISOString()}, companyId: ${companyId}`);
         const paymentMatch = {
             paymentDate: { $gte: start, $lte: end },
         };
@@ -1642,19 +1588,17 @@ let ReportsService = class ReportsService {
             }
             const dayData = dateMap.get(dateKey);
             let issueValue = 0;
+            let totalProductsIssued = 0;
             issue.items.forEach((item) => {
-                const product = typeof item.productId === "object" && item.productId !== null
-                    ? item.productId
-                    : null;
-                const tradePrice = (product === null || product === void 0 ? void 0 : product.tradePrice) || 0;
+                const tradePrice = item.tradePrice || 0;
                 issueValue += item.quantity * tradePrice;
+                totalProductsIssued += item.quantity;
             });
             dayData.productIssued += issueValue;
-            dayData.productIssuedCount += 1;
+            dayData.productIssuedCount += totalProductsIssued;
         });
         const summary = Array.from(dateMap.values()).sort((a, b) => a.date.localeCompare(b.date));
         if (summary.length === 0) {
-            console.log("💰 No real daily financial data found, using sample data");
             const sampleSummary = [];
             const daysInPeriod = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
             for (let i = 0; i < Math.min(daysInPeriod, 7); i++) {
@@ -1721,7 +1665,6 @@ let ReportsService = class ReportsService {
         };
     }
     async getPendingDeliveries(companyId, page = 1, limit = 10, timePeriod = "all") {
-        console.log("🔍 Backend: getPendingDeliveries called for company:", companyId, "page:", page, "limit:", limit, "timePeriod:", timePeriod, "at:", new Date().toISOString());
         const issuesQuery = {};
         if (companyId) {
             const companyProducts = await this.productModel
@@ -1774,14 +1717,44 @@ let ReportsService = class ReportsService {
             {
                 $lookup: {
                     from: "srpayments",
-                    localField: "_id",
-                    foreignField: "issueId",
+                    let: { issueId: "$_id" },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $eq: [{ $toString: "$issueId" }, { $toString: "$$issueId" }],
+                                },
+                            },
+                        },
+                    ],
                     as: "payments",
                 },
             },
             {
+                $addFields: {
+                    totalReceived: {
+                        $sum: "$payments.receivedAmount",
+                    },
+                },
+            },
+            {
                 $match: {
-                    payments: { $eq: [] },
+                    $or: [
+                        { payments: { $size: 0 } },
+                        {
+                            $expr: {
+                                $gt: [
+                                    {
+                                        $subtract: [
+                                            "$totalAmount",
+                                            { $ifNull: ["$totalReceived", 0] },
+                                        ],
+                                    },
+                                    0.01,
+                                ],
+                            },
+                        },
+                    ],
                 },
             },
             { $sort: { issueDate: -1 } },
@@ -1795,29 +1768,67 @@ let ReportsService = class ReportsService {
         pipeline.push({ $skip: (page - 1) * limit }, { $limit: limit }, {
             $lookup: {
                 from: "salesreps",
-                localField: "srId",
-                foreignField: "_id",
+                let: { srId: "$srId" },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $eq: ["$_id", { $toObjectId: "$$srId" }],
+                            },
+                        },
+                    },
+                ],
                 as: "srInfo",
-            },
-        }, {
-            $unwind: {
-                path: "$srInfo",
-                preserveNullAndEmptyArrays: true,
             },
         }, {
             $lookup: {
                 from: "products",
-                localField: "items.productId",
-                foreignField: "_id",
+                let: { productIds: "$items.productId" },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $in: [
+                                    "$_id",
+                                    {
+                                        $map: {
+                                            input: "$$productIds",
+                                            as: "pid",
+                                            in: { $toObjectId: "$$pid" },
+                                        },
+                                    },
+                                ],
+                            },
+                        },
+                    },
+                ],
                 as: "productInfo",
             },
         }, {
             $project: {
                 issueNumber: 1,
                 issueDate: 1,
-                srId: "$srInfo._id",
-                srName: "$srInfo.name",
-                srPhone: "$srInfo.phone",
+                srId: {
+                    $cond: {
+                        if: { $gt: [{ $size: "$srInfo" }, 0] },
+                        then: { $arrayElemAt: ["$srInfo._id", 0] },
+                        else: "$srId",
+                    },
+                },
+                srName: {
+                    $cond: {
+                        if: { $gt: [{ $size: "$srInfo" }, 0] },
+                        then: { $arrayElemAt: ["$srInfo.name", 0] },
+                        else: "Unknown SR",
+                    },
+                },
+                srPhone: {
+                    $cond: {
+                        if: { $gt: [{ $size: "$srInfo" }, 0] },
+                        then: { $arrayElemAt: ["$srInfo.phone", 0] },
+                        else: "",
+                    },
+                },
                 items: {
                     $map: {
                         input: "$items",
@@ -1881,16 +1892,9 @@ let ReportsService = class ReportsService {
                 hasPrevPage: page > 1,
             },
         };
-        console.log("📦 Pending deliveries result (server-side):", {
-            srCount: result.pendingDeliveries.length,
-            totalItems: result.totalPendingItems,
-            totalValue: result.totalPendingValue,
-            pagination: result.pagination,
-        });
         return result;
     }
     async getProductHistory(productId, startDate, endDate) {
-        console.log("🔍 Backend: getProductHistory called for product:", productId);
         const product = await this.productModel
             .findById(productId)
             .select("_id name sku tradePrice unit")

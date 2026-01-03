@@ -24,8 +24,12 @@ let CompanyClaimsController = class CompanyClaimsController {
     create(createCompanyClaimDto) {
         return this.companyClaimsService.create(createCompanyClaimDto);
     }
-    findAll(companyId, page = 1, limit = 10, timePeriod = "all", searchQuery) {
-        return this.companyClaimsService.findAll(companyId, Number(page), Number(limit), timePeriod, searchQuery);
+    findAll(companyId, page, limit, timePeriod = "all", searchQuery) {
+        const pageNum = page ? parseInt(page, 10) : 1;
+        const limitNum = limit ? parseInt(limit, 10) : 10;
+        const safePage = isNaN(pageNum) || pageNum < 1 ? 1 : pageNum;
+        const safeLimit = isNaN(limitNum) || limitNum < 1 ? 10 : limitNum;
+        return this.companyClaimsService.findAll(companyId, safePage, safeLimit, timePeriod, searchQuery);
     }
     findOne(id) {
         return this.companyClaimsService.findOne(id);
@@ -53,7 +57,7 @@ __decorate([
     __param(3, (0, common_1.Query)("timePeriod")),
     __param(4, (0, common_1.Query)("searchQuery")),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Number, Number, String, String]),
+    __metadata("design:paramtypes", [String, String, String, String, String]),
     __metadata("design:returntype", void 0)
 ], CompanyClaimsController.prototype, "findAll", null);
 __decorate([

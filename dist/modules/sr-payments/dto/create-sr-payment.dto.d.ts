@@ -19,4 +19,11 @@ export declare class CreateSRPaymentDto {
         phone?: string;
     };
     notes?: string;
+    returnItems?: ReturnItemDto[];
+}
+export declare class ReturnItemDto {
+    productId: string;
+    damagedQuantity: number;
+    customerReturnQuantity: number;
+    reason?: string;
 }
