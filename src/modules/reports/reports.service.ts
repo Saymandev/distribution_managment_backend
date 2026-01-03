@@ -718,12 +718,11 @@ export class ReportsService {
       const totalNetFromCompany = claim ? claim.totalNetFromCompany : 0;
       const companyPurchases = claim ? claim.totalDealerPrice : 0;
 
-      // Revenue = Total sales value (accrual basis)
+      // Revenue = SR payments (includes compensation for discounts)
       const totalRevenue = totalSalesValue;
 
-      // COGS calculation (simplified - would need inventory tracking for accuracy)
-      // For now, using purchases as proxy for COGS
-      const cogs = companyPurchases - totalNetFromCompany; // Net cost after discounts
+      // COGS = Purchases
+      const cogs = companyPurchases;
 
       // Gross Profit
       const grossProfit = totalRevenue - cogs;
@@ -748,14 +747,13 @@ export class ReportsService {
           endDate: finalEndDate,
         },
         revenue: {
-          totalSalesValue,
+          salesRevenue: totalSalesValue,
           cashReceived: totalSRPayments,
           outstandingReceivables: totalOutstandingReceivables,
           total: totalRevenue,
         },
         cogs: {
           purchases: companyPurchases,
-          discountsReceived: totalNetFromCompany,
           netCOGS: cogs,
         },
         profitability: {
@@ -797,11 +795,11 @@ export class ReportsService {
         0,
       );
 
-      // Revenue = Total sales value (accrual basis)
-      const totalRevenue = totalSalesValue;
+      // Revenue = SR payments + Company claims (both are income)
+      const totalRevenue = totalSalesValue + totalNetFromCompany;
 
-      // COGS calculation
-      const cogs = totalPurchases - totalNetFromCompany; // Net cost after discounts
+      // COGS = Purchases (company claims are treated as separate income, not cost reduction)
+      const cogs = totalPurchases;
 
       // Gross Profit
       const grossProfit = totalRevenue - cogs;
@@ -829,14 +827,13 @@ export class ReportsService {
           endDate: finalEndDate,
         },
         revenue: {
-          totalSalesValue,
+          salesRevenue: totalSalesValue,
           cashReceived: totalSRPayments,
           outstandingReceivables: totalOutstandingReceivables,
           total: totalRevenue,
         },
         cogs: {
           purchases: totalPurchases,
-          discountsReceived: totalNetFromCompany,
           netCOGS: cogs,
         },
         profitability: {

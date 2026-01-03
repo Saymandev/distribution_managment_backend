@@ -512,7 +512,7 @@ let ReportsService = class ReportsService {
             const totalNetFromCompany = claim ? claim.totalNetFromCompany : 0;
             const companyPurchases = claim ? claim.totalDealerPrice : 0;
             const totalRevenue = totalSalesValue;
-            const cogs = companyPurchases - totalNetFromCompany;
+            const cogs = companyPurchases;
             const grossProfit = totalRevenue - cogs;
             const netProfit = grossProfit - totalExpenses;
             const companies = await this.companyModel
@@ -527,14 +527,13 @@ let ReportsService = class ReportsService {
                     endDate: finalEndDate,
                 },
                 revenue: {
-                    totalSalesValue,
+                    salesRevenue: totalSalesValue,
                     cashReceived: totalSRPayments,
                     outstandingReceivables: totalOutstandingReceivables,
                     total: totalRevenue,
                 },
                 cogs: {
                     purchases: companyPurchases,
-                    discountsReceived: totalNetFromCompany,
                     netCOGS: cogs,
                 },
                 profitability: {
@@ -568,8 +567,8 @@ let ReportsService = class ReportsService {
         else {
             const totalNetFromCompany = companyClaims.reduce((sum, c) => sum + c.totalNetFromCompany, 0);
             const totalPurchases = companyClaims.reduce((sum, c) => sum + (c.totalDealerPrice || 0), 0);
-            const totalRevenue = totalSalesValue;
-            const cogs = totalPurchases - totalNetFromCompany;
+            const totalRevenue = totalSalesValue + totalNetFromCompany;
+            const cogs = totalPurchases;
             const grossProfit = totalRevenue - cogs;
             const netProfit = grossProfit - totalExpenses;
             const companyIds = companyClaims.map((c) => c._id).filter((id) => id);
@@ -586,14 +585,13 @@ let ReportsService = class ReportsService {
                     endDate: finalEndDate,
                 },
                 revenue: {
-                    totalSalesValue,
+                    salesRevenue: totalSalesValue,
                     cashReceived: totalSRPayments,
                     outstandingReceivables: totalOutstandingReceivables,
                     total: totalRevenue,
                 },
                 cogs: {
                     purchases: totalPurchases,
-                    discountsReceived: totalNetFromCompany,
                     netCOGS: cogs,
                 },
                 profitability: {

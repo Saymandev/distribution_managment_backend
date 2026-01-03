@@ -18,15 +18,14 @@ export declare class ReportsController {
             endDate: Date;
         };
         revenue: {
-            totalSalesValue: any;
+            salesRevenue: any;
             cashReceived: any;
             outstandingReceivables: number;
             total: any;
         };
         cogs: {
             purchases: any;
-            discountsReceived: any;
-            netCOGS: number;
+            netCOGS: any;
         };
         profitability: {
             grossProfit: number;
@@ -55,15 +54,14 @@ export declare class ReportsController {
             endDate: Date;
         };
         revenue: {
-            totalSalesValue: any;
+            salesRevenue: any;
             cashReceived: any;
             outstandingReceivables: number;
             total: any;
         };
         cogs: {
             purchases: any;
-            discountsReceived: any;
-            netCOGS: number;
+            netCOGS: any;
         };
         profitability: {
             grossProfit: number;
