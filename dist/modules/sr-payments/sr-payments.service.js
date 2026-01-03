@@ -69,8 +69,10 @@ let SRPaymentsService = class SRPaymentsService {
     }
     async createClaimFromPayment(payment) {
         var _a, _b, _c, _d;
-        if (!payment.issueId) {
-            throw new common_1.NotFoundException("Issue ID is required to create a claim");
+        if (!payment.issueId ||
+            !payment.companyClaim ||
+            payment.companyClaim <= 0) {
+            throw new common_1.NotFoundException("Issue ID and company claim amount are required to create a claim");
         }
         let paymentIssueId;
         if (typeof payment.issueId === "string") {
@@ -127,42 +129,6 @@ let SRPaymentsService = class SRPaymentsService {
         const companyId = typeof products[0].companyId === "string"
             ? products[0].companyId
             : ((_a = products[0].companyId) === null || _a === void 0 ? void 0 : _a._id) || products[0].companyId;
-        const company = await this.companyModel.findById(companyId).exec();
-        if (!company) {
-            throw new common_1.NotFoundException("Company not found");
-        }
-        const claimItems = payment.items.map((paymentItem) => {
-            var _a;
-            const productId = typeof paymentItem.productId === "string"
-                ? paymentItem.productId
-                : ((_a = paymentItem.productId) === null || _a === void 0 ? void 0 : _a._id) || paymentItem.productId;
-            const product = products.find((p) => p._id.toString() === productId.toString());
-            if (!product) {
-                throw new common_1.NotFoundException(`Product ${productId} not found`);
-            }
-            const dealerPriceTotal = paymentItem.quantity * paymentItem.dealerPrice;
-            const discount = paymentItem.quantity *
-                (paymentItem.dealerPrice - paymentItem.tradePrice);
-            const commissionAmount = dealerPriceTotal * (company.commissionRate / 100);
-            const srPayment = paymentItem.quantity * paymentItem.tradePrice;
-            const netFromCompany = dealerPriceTotal + commissionAmount - srPayment;
-            return {
-                productId,
-                quantity: paymentItem.quantity,
-                dealerPrice: paymentItem.dealerPrice,
-                tradePrice: paymentItem.tradePrice,
-                discount,
-                commissionRate: company.commissionRate,
-                commissionAmount,
-                srPayment,
-                netFromCompany,
-            };
-        });
-        const totalDealerPrice = claimItems.reduce((sum, item) => sum + item.quantity * item.dealerPrice, 0);
-        const totalCommission = claimItems.reduce((sum, item) => sum + item.commissionAmount, 0);
-        const totalSRPayment = claimItems.reduce((sum, item) => sum + item.srPayment, 0);
-        const totalCompanyClaim = totalDealerPrice + totalCommission;
-        const netFromCompany = totalCompanyClaim - totalSRPayment;
         const claimNumber = await this.generateClaimNumber();
         const claimIssueId = typeof payment.issueId === "string"
             ? payment.issueId
@@ -173,11 +139,11 @@ let SRPaymentsService = class SRPaymentsService {
             companyId,
             paymentId: payment._id,
             issueId: claimIssueId,
-            items: claimItems,
-            totalDealerPrice,
-            totalCompanyClaim,
-            totalSRPayment,
-            netFromCompany,
+            items: [],
+            totalDealerPrice: 0,
+            totalCompanyClaim: payment.companyClaim,
+            totalSRPayment: 0,
+            netFromCompany: payment.companyClaim,
             status: company_claim_schema_1.ClaimStatus.PENDING,
             notes: `Auto-generated from payment ${payment.receiptNumber}`,
         });
@@ -281,11 +247,11 @@ let SRPaymentsService = class SRPaymentsService {
         const finalIssueId = typeof payment.issueId === "string"
             ? payment.issueId
             : String(((_b = payment.issueId) === null || _b === void 0 ? void 0 : _b._id) || payment.issueId);
-        existingClaim.items = claimItems;
-        existingClaim.totalDealerPrice = totalDealerPrice;
-        existingClaim.totalCompanyClaim = totalCompanyClaim;
-        existingClaim.totalSRPayment = totalSRPayment;
-        existingClaim.netFromCompany = netFromCompany;
+        existingClaim.items = [];
+        existingClaim.totalDealerPrice = 0;
+        existingClaim.totalCompanyClaim = payment.companyClaim;
+        existingClaim.totalSRPayment = 0;
+        existingClaim.netFromCompany = payment.companyClaim;
         existingClaim.companyId = companyId;
         existingClaim.paymentId = String(payment._id);
         existingClaim.issueId = finalIssueId;

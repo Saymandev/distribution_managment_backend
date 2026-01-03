@@ -102,8 +102,14 @@ export class SRPaymentsService {
   async createClaimFromPayment(
     payment: SRPaymentDocument,
   ): Promise<CompanyClaimDocument> {
-    if (!payment.issueId) {
-      throw new NotFoundException("Issue ID is required to create a claim");
+    if (
+      !payment.issueId ||
+      !payment.companyClaim ||
+      payment.companyClaim <= 0
+    ) {
+      throw new NotFoundException(
+        "Issue ID and company claim amount are required to create a claim",
+      );
     }
 
     // Check if a claim already exists for this issue (one issue = one claim)
@@ -152,7 +158,7 @@ export class SRPaymentsService {
       return this.updateClaimFromPayment(payment);
     }
 
-    // Get product IDs from payment items
+    // Get product IDs from payment items to find the company
     const productIds = payment.items.map((item) => {
       if (typeof item.productId === "string") {
         return item.productId;
@@ -180,63 +186,6 @@ export class SRPaymentsService {
         ? products[0].companyId
         : (products[0].companyId as any)?._id || products[0].companyId;
 
-    const company = await this.companyModel.findById(companyId).exec();
-    if (!company) {
-      throw new NotFoundException("Company not found");
-    }
-
-    // Build claim items from payment items
-    const claimItems = payment.items.map((paymentItem) => {
-      const productId =
-        typeof paymentItem.productId === "string"
-          ? paymentItem.productId
-          : (paymentItem.productId as any)?._id || paymentItem.productId;
-
-      const product = products.find(
-        (p) => p._id.toString() === productId.toString(),
-      );
-      if (!product) {
-        throw new NotFoundException(`Product ${productId} not found`);
-      }
-
-      const dealerPriceTotal = paymentItem.quantity * paymentItem.dealerPrice;
-      const discount =
-        paymentItem.quantity *
-        (paymentItem.dealerPrice - paymentItem.tradePrice); // Discount given to customer
-      const commissionAmount =
-        dealerPriceTotal * (company.commissionRate / 100); // Use company's commission rate
-      const srPayment = paymentItem.quantity * paymentItem.tradePrice;
-      const netFromCompany = dealerPriceTotal + commissionAmount - srPayment; // Dealer price + commission - SR payment
-
-      return {
-        productId,
-        quantity: paymentItem.quantity,
-        dealerPrice: paymentItem.dealerPrice,
-        tradePrice: paymentItem.tradePrice,
-        discount,
-        commissionRate: company.commissionRate,
-        commissionAmount,
-        srPayment,
-        netFromCompany,
-      };
-    });
-
-    // Calculate totals
-    const totalDealerPrice = claimItems.reduce(
-      (sum, item) => sum + item.quantity * item.dealerPrice,
-      0,
-    );
-    const totalCommission = claimItems.reduce(
-      (sum, item) => sum + item.commissionAmount,
-      0,
-    );
-    const totalSRPayment = claimItems.reduce(
-      (sum, item) => sum + item.srPayment,
-      0,
-    ); // What SR actually paid
-    const totalCompanyClaim = totalDealerPrice + totalCommission; // Dealer price + commission
-    const netFromCompany = totalCompanyClaim - totalSRPayment; // Amount to claim from company
-
     // Generate claim number
     const claimNumber = await this.generateClaimNumber();
 
@@ -252,11 +201,11 @@ export class SRPaymentsService {
       companyId,
       paymentId: payment._id,
       issueId: claimIssueId, // Link to issue (one issue = one claim)
-      items: claimItems,
-      totalDealerPrice,
-      totalCompanyClaim,
-      totalSRPayment,
-      netFromCompany,
+      items: [], // No complex items needed
+      totalDealerPrice: 0, // Not needed for simple claims
+      totalCompanyClaim: payment.companyClaim, // Just use the amount entered in payment
+      totalSRPayment: 0, // Not needed for simple claims
+      netFromCompany: payment.companyClaim, // Just use the amount entered in payment
       status: ClaimStatus.PENDING,
       notes: `Auto-generated from payment ${payment.receiptNumber}`,
     });
@@ -404,11 +353,11 @@ export class SRPaymentsService {
         ? payment.issueId
         : String((payment.issueId as any)?._id || payment.issueId);
 
-    existingClaim.items = claimItems;
-    existingClaim.totalDealerPrice = totalDealerPrice;
-    existingClaim.totalCompanyClaim = totalCompanyClaim;
-    existingClaim.totalSRPayment = totalSRPayment;
-    existingClaim.netFromCompany = netFromCompany;
+    existingClaim.items = []; // No complex items needed
+    existingClaim.totalDealerPrice = 0; // Not needed for simple claims
+    existingClaim.totalCompanyClaim = payment.companyClaim; // Just use the amount entered in payment
+    existingClaim.totalSRPayment = 0; // Not needed for simple claims
+    existingClaim.netFromCompany = payment.companyClaim; // Just use the amount entered in payment
     existingClaim.companyId = companyId; // Ensure companyId is set
     existingClaim.paymentId = String(payment._id); // Update payment reference
     existingClaim.issueId = finalIssueId; // Ensure issueId is set as string
